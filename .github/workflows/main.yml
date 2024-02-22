@@ -29,11 +29,11 @@ jobs:
         bundler-cache: true
     - name: Enable MySQL
       if: ${{ matrix.db == 'mysql' }}
-      run: sudo systemctl start mysql.service
-      run: mysql -u root -proot -e 'CREATE DATABASE `positioning_test`;'
+      - run: sudo systemctl start mysql.service
+      - run: mysql -u root -proot -e 'CREATE DATABASE `positioning_test`;'
     - name: Enable PostgreSQL
       if: ${{ matrix.db == 'postgresql' }}
-      run: sudo systemctl start postgresql.service
-      run: psql -U postgres -c 'CREATE DATABASE `positioning_test`;'
+      - run: sudo systemctl start postgresql.service
+      - run: psql -U postgres -c 'CREATE DATABASE `positioning_test`;'
     - name: Run the default task
       run: bundle exec rake
