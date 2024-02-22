@@ -33,6 +33,9 @@ jobs:
     - name: Create MySQL Database
       if: ${{ matrix.db == 'mysql' }}
       run: mysql -u root -proot -e 'CREATE DATABASE positioning_test;'
+    - name: Clear password for MySQL root user
+      if: ${{ matrix.db == 'mysql' }}
+      run: mysql -u root -proot -e 'SET PASSWORD FOR root@localhost='';'
     - name: Enable PostgreSQL
       if: ${{ matrix.db == 'postgresql' }}
       run: sudo systemctl start postgresql.service
