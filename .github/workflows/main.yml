@@ -23,5 +23,11 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
+    - name: Enable MySQL
+      run: sudo systemctl start mysql.service
+    - name: Create MySQL Database
+      run: mysql -u root -p root -e 'CREATE DATABASE `positioning_test`;'
+    - name: Enable PostgreSQL
+      run: sudo systemctl start postgresql.service
     - name: Run the default task
       run: bundle exec rake
