@@ -1,0 +1,16 @@
+mysql:
+  adapter: mysql2
+  database: positioning_test
+  pool: 5
+  timeout: 5000
+  username: root
+  password:
+
+postgresql:
+  adapter: postgresql
+  database: positioning_test
+  pool: 5
+  timeout: 5000
+  username: postgres
+  password:
+  min_messages: ERROR

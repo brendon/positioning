@@ -1,6 +1,8 @@
 # Positioning
 
-The aim of this gem is to allow you to easily position model instances within a scope of your choosing. In an ideal world this gem will give your model instances sequential integer positions beginning with `1`. Attempts are made to lock the database records so that concurrent requests can't corrupt the order of items.
+The aim of this gem is to allow you to easily position model instances within a scope of your choosing. In an ideal world this gem will give your model instances sequential integer positions beginning with `1`. Attempts are made to make all changes within a transaction so that position integers remain consistent. To this end, directly assigning a position is discouraged, instead you can move items by declaring an item's prior or subsequent item in the list and your item will be moved to be relative to that item.
+
+Positioning supports multiple lists per model with global, simple, and complex scopes.
 
 ## Installation
 
@@ -20,7 +22,7 @@ Or install it yourself as:
 
 ## Usage
 
-Your database column should be named `position` and not allow `NULL` as a value:
+In the simplest case our database column should be named `position` and not allow `NULL` as a value:
 
 `add_column :items, :position, :integer, null: false`
 

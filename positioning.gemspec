@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 require_relative "lib/positioning/version"
 
 Gem::Specification.new do |spec|
@@ -11,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Simple positioning for Active Record models."
   spec.homepage = "https://github.com/brendon/positioning"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 2.6.0"
+  spec.required_ruby_version = ">= 3.0.0"
 
   spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
 
@@ -31,7 +29,11 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Uncomment to register a new dependency of your gem
+  spec.add_dependency "activesupport", ">= 6.1"
   spec.add_dependency "activerecord", ">= 6.1"
+  spec.add_development_dependency "minitest-hooks", "~> 1.5.1"
+  spec.add_development_dependency "mocha", "~> 2.1.0"
+  spec.add_development_dependency "mysql2", "~> 0.5.6"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
