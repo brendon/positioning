@@ -26,7 +26,7 @@ jobs:
     - name: Enable MySQL
       run: sudo systemctl start mysql.service
     - name: Create MySQL Database
-      run: mysql -u root -p root -e 'CREATE DATABASE `positioning_test`;'
+      run: mysql -u root -proot -e 'CREATE DATABASE `positioning_test`;'
     - name: Enable PostgreSQL
       run: sudo systemctl start postgresql.service
     - name: Run the default task
