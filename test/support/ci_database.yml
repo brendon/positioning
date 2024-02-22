@@ -13,5 +13,5 @@ postgresql:
   timeout: 5000
   host: localhost
   username: postgres
-  password:
+  password: postgres
   min_messages: ERROR
