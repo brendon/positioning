@@ -2,7 +2,9 @@ require "active_record"
 
 ENV["DB"] = "mysql" unless ENV["DB"]
 
-ActiveRecord::Base.configurations = YAML.safe_load(IO.read("test/support/database.yml"))
+database_configuration = ENV["CI"] ? "test/support/ci_database.yml" : "test/support/database.yml"
+
+ActiveRecord::Base.configurations = YAML.safe_load(IO.read(database_configuration))
 ActiveRecord::Base.establish_connection(ENV["DB"].to_sym)
 
 ActiveRecord::Schema.define version: 0 do
