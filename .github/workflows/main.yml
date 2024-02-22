@@ -38,6 +38,6 @@ jobs:
       run: sudo systemctl start postgresql.service
     - name: Create PostgreSQL Database
       if: ${{ matrix.db == 'postgresql' }}
-      run: psql -U postgres -c 'CREATE DATABASE `positioning_test`;'
+      run: psql -h localhost -U postgres -c 'CREATE DATABASE `positioning_test`;'
     - name: Run the default task
       run: bundle exec rake
