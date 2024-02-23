@@ -17,7 +17,6 @@ postgresql:
   database: runner
   pool: 5
   timeout: 5000
-  host: localhost
   username: runner
   password:
   min_messages: ERROR
