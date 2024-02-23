@@ -16,7 +16,7 @@ module Positioning
     def create_position
       solidify_position
 
-      expand(position..)
+      expand(positioning_scope, position..)
     end
 
     def update_position
@@ -37,24 +37,22 @@ module Positioning
         if positioning_scope_changed?
           positioning_scope_was = base_class.where record_scope.first.slice(*positioning_columns)
 
-          positioning_scope_was.where("#{@column}": position_was..).reorder("#{@column}": :asc)
-            .update_all "#{@column} = (#{@column} - 1)"
-
-          expand(position..)
+          contract(positioning_scope_was, position_was..)
+          expand(positioning_scope, position..)
 
           # If the position integer was set to the same as its prior value but the scope has changed then
           # we need to tell Rails that it has changed so that it gets updated from the temporary 0 value.
           position_will_change!
         elsif position_was > position
-          expand(position..position_was)
+          expand(positioning_scope, position..position_was)
         else
-          contract(position_was..position)
+          contract(positioning_scope, position_was..position)
         end
       end
     end
 
     def destroy_position
-      contract((position + 1)..) unless destroyed_via_positioning_scope?
+      contract(positioning_scope, (position + 1)..) unless destroyed_via_positioning_scope?
     end
 
     private
@@ -87,14 +85,14 @@ module Positioning
       @positioned.send :"#{@column}_will_change!"
     end
 
-    def expand(range)
-      positioning_scope.where("#{@column}": range).reorder("#{@column}": :desc)
-        .update_all "#{@column} = (#{@column} + 1)"
+    def expand(scope, range)
+      scope.where("#{@column}": range).update_all "#{@column} = #{@column} * -1"
+      scope.where("#{@column}": ..-1).update_all "#{@column} = #{@column} * -1 + 1"
     end
 
-    def contract(range)
-      positioning_scope.where("#{@column}": range).reorder("#{@column}": :asc)
-        .update_all "#{@column} = (#{@column} - 1)"
+    def contract(scope, range)
+      scope.where("#{@column}": range).update_all "#{@column} = #{@column} * -1"
+      scope.where("#{@column}": ..-1).update_all "#{@column} = #{@column} * -1 - 1"
     end
 
     def solidify_position
