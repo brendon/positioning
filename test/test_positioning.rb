@@ -493,7 +493,65 @@ class TestNoScopePositioning < Minitest::Test
     assert_equal [1, 2, 3], [@first_category, @second_category, @third_category].map(&:position)
   end
 
-  def test_absolute_positioning
+  def test_absolute_positioning_create
+    positions = [1, 2, 3]
+
+    4.times do |position|
+      model = Category.create name: "New Category", position: position
+      @models.insert position.clamp(1..3) - 1, model
+      positions.push positions.length + 1
+
+      reload_models
+      assert_equal positions, @models.map(&:position)
+    end
+  end
+
+  def test_relative_positioning_create
+    positions = [1, 2, 3]
+
+    [:before, :after].each do |relative_position|
+      [@first_category, @second_category, @third_category, nil].each do |relative_model|
+        model = Category.create name: "New Category", position: {"#{relative_position}": relative_model}
+
+        if !relative_model
+          if relative_position == :before
+            @models.insert @models.length, model
+          elsif relative_position == :after
+            @models.insert 0, model
+          end
+        elsif model != relative_model
+          if relative_position == :before
+            @models.insert @models.index(relative_model), model
+          elsif relative_position == :after
+            @models.insert @models.index(relative_model) + 1, model
+          end
+        end
+
+        positions.push positions.length + 1
+
+        reload_models
+        assert_equal positions, @models.map(&:position)
+      end
+    end
+
+    [:first, :last, nil].each do |relative_position|
+      model = Category.create name: "New Category", position: relative_position
+
+      case relative_position
+      when :first
+        @models.insert 0, model
+      when :last, nil
+        @models.insert @models.length, model
+      end
+
+      positions.push positions.length + 1
+
+      reload_models
+      assert_equal positions, @models.map(&:position)
+    end
+  end
+
+  def test_absolute_positioning_update
     4.times do |position|
       [@first_category, @second_category, @third_category].each do |model|
         model.update position: position
@@ -506,7 +564,7 @@ class TestNoScopePositioning < Minitest::Test
     end
   end
 
-  def test_relative_positioning
+  def test_relative_positioning_update
     [:before, :after].each do |relative_position|
       [@first_category, @second_category, @third_category].each do |model|
         [@first_category, @second_category, @third_category, nil].each do |relative_model|
@@ -552,6 +610,21 @@ class TestNoScopePositioning < Minitest::Test
         reload_models
         assert_equal [1, 2, 3], @models.map(&:position)
       end
+    end
+  end
+
+  def test_destruction
+    positions = [1, 2, 3]
+
+    [@second_category, @first_category, @third_category].each do |model|
+      index = @models.index(model)
+      model.destroy
+
+      @models.delete_at index
+      positions.pop
+
+      reload_models
+      assert_equal positions, @models.map(&:position)
     end
   end
 end

@@ -27,7 +27,7 @@ ActiveRecord::Schema.define version: 0 do
 
   add_index :categories, :position, unique: true
 
-  create_table :categoriesd_items, force: true do |t|
+  create_table :categorised_items, force: true do |t|
     t.string :name
     t.integer :position, null: false
     t.integer :category_position, null: false
@@ -35,8 +35,8 @@ ActiveRecord::Schema.define version: 0 do
     t.references :category, null: false
   end
 
-  add_index :categoriesd_items, [:list_id, :position], unique: true
-  add_index :categoriesd_items, [:list_id, :category_id, :category_position], unique: true
+  add_index :categorised_items, [:list_id, :position], unique: true
+  add_index :categorised_items, [:list_id, :category_id, :category_position], unique: true
 
   create_table :authors, force: true do |t|
     t.string :name
