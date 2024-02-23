@@ -6,7 +6,7 @@ sqlite:
 
 mysql:
   adapter: mysql2
-  database: positioning_test
+  database: runner
   pool: 5
   timeout: 5000
   username: root
@@ -14,10 +14,10 @@ mysql:
 
 postgresql:
   adapter: postgresql
-  database: positioning_test
+  database: runner
   pool: 5
   timeout: 5000
   host: localhost
-  username: postgres
-  password: postgres
+  username: runner
+  password:
   min_messages: ERROR
