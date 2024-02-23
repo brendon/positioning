@@ -18,6 +18,7 @@ jobs:
         db:
           - mysql
           - postgresql
+          - sqlite
     env:
       DB: ${{ matrix.db }}
     steps:
