@@ -67,18 +67,29 @@ class TestPositioningScopes < Minitest::Test
     assert_equal 1, first_item.position
   end
 
-  def test_that_destroyed_via_positioning_scope_does_not_close_gaps
+  def test_that_destroyed_via_positioning_scope_does_not_call_contract
     list = List.create name: "First List"
     list.items.create name: "First Item"
     list.items.create name: "Second Item"
     list.items.create name: "Third Item"
 
-    Item.any_instance.expects(:positioning_scope).with(:position).never
+    Positioning::Mechanisms.any_instance.expects(:contract).never
 
     list.destroy
   end
 
-  def test_that_not_destroyed_via_positioning_scope_closes_gaps
+  def test_that_not_destroyed_via_positioning_scope_calls_contract
+    list = List.create name: "First List"
+    list.items.create name: "First Item"
+    second_item = list.items.create name: "Second Item"
+    list.items.create name: "Third Item"
+
+    Positioning::Mechanisms.any_instance.expects(:contract).once
+
+    second_item.destroy
+  end
+
+  def test_that_not_destroyed_via_positioning_scope_closes_gap
     list = List.create name: "First List"
     first_item = list.items.create name: "First Item"
     second_item = list.items.create name: "Second Item"
