@@ -39,17 +39,20 @@ The Positioning gem uses `0` and negative integers to rearrange the lists it man
 To declare that your model should keep track of the position of its records you can use the `positioned` method. Here are some examples:
 
 ```ruby
-# The scope is global (all records will belong to the same list) and the databse column is 'positioned'
+# The scope is global (all records will belong to the same list) and the databse column
+# is 'positioned'
 positioned
 
 # The scope is on the belongs_to relationship 'list' and the databse column is 'positioned'
-# We check if the scope is a belongs_to relationship and use its declared foreign_key as the scope
-# value. In this case it would be 'list_id' since we haven't overridden the default foreign key.
+# We check if the scope is a belongs_to relationship and use its declared foreign_key as
+# the scope value. In this case it would be 'list_id' since we haven't overridden the
+# default foreign key.
 belongs_to :list
 positioned on: :list
 
-# If you want to change the database column used to record positions you can do so via the ':column' parameter.
-# This is most useful when you are keeping track of more than one list on a model.
+# If you want to change the database column used to record positions you can do so via the
+# ':column' parameter. This is most useful when you are keeping track of more than one
+# list on a model.
 belongs_to :list
 belongs_to :category
 positioned on: :list
@@ -58,19 +61,20 @@ positioned on: :category, column: :category_position
 # A scope need not be a belongs_to relationship; it can be any column in the database table.
 positioned on: :type
 
-# Finally, you can have more complex scopes defined as an array of relationships or columns.
+# Finally, you can have more complex scopes defined as an array of relationships and/or
+# columns.
 belongs_to :list
 belongs_to :category
 positioned on: [:list, :category, :enabled]
 ```
 
-### Manipulating Positining
+### Manipulating Positioning
 
 The tools for manipulating the position of records in your list have been kept intentionally terse. Priority has also been given to minimal pollution of the model namespace. Only two class methods are defined on all models (`positioning_columns` and `positioned`), and two instance methods are defined on models that call `positioned`:
 
 #### Accessing Relative List Items
 
-The two instance methods that we add are for finding the prior and subsequent items relative to the current item in the list. These methods are named after the database column used to track positioning by default the methods are named `prior_position` and `subsequent_position`. In the example above where we used the column `category_position` then the methods would be named `prior_category_position` and `subsequent_category_position`.
+The two instance methods that we add are for finding the prior and subsequent items relative to the current item in the list. These methods are named after the database column used to track positioning. By default the methods are named `prior_position` and `subsequent_position`. In the example above where we used the column `category_position` then the methods would be named `prior_category_position` and `subsequent_category_position`.
 
 #### Assigning Positions
 
@@ -78,7 +82,7 @@ If you don't provide a position when creating a record, your record will be adde
 
 To assign a specific position when creating or updating a record you can simply declare a specific value for the database column tracking the position of records (by default this is `position`). The valid options for this column are:
 
-* A specific integer value. Values are automatically clamped to between `1` and the next available position at the end of the list. You should use explicit position values as a last resort, instead you can use:
+* A specific integer value. Values are automatically clamped to between `1` and the next available position at the end of the list (inclusive). You should use explicit position values as a last resort, instead you can use:
 * `:first` places the record at the start of the list.
 * `:last` places the record at the end of the list.
 * `nil` also places the record at the end of the list.
@@ -186,6 +190,10 @@ It's important to note that in the examples above, `other_item` must already bel
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+
+This gem is tested against SQLite, PostgreSQL and MySQL. The default database for testing is MySQL. You can target other databases by prepending the environment variable `DB=sqlite` or `DB=postgresql` before `rake test`. For example: `DB=sqlite rake test`.
+
+The PostgreSQL and MySQL environments are configured under `test/support/database.yml`. You can edit this file, or preferrably adjust your environment to support passwordless socket based connections to these two database engines. You'll also need to manually create a database named `positioning_test` in each.
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
