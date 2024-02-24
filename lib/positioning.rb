@@ -22,8 +22,9 @@ module Positioning
       else
         positioning_columns[column] = Array.wrap(on).map do |scope_component|
           scope_component = scope_component.to_s
+          reflection = reflections[scope_component]
 
-          reflections[scope_component] ? reflections[scope_component].foreign_key : scope_component
+          (reflection && reflection.belongs_to?) ? reflection.foreign_key : scope_component
         end
 
         define_method(:"prior_#{column}") { Mechanisms.new(self, column).prior }
