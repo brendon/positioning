@@ -5,6 +5,8 @@ require_relative "models/item"
 require_relative "models/category"
 require_relative "models/categorised_item"
 require_relative "models/author"
+require_relative "models/author/student"
+require_relative "models/author/teacher"
 
 class TestPositioningScopes < Minitest::Test
   include Minitest::Hooks
@@ -637,5 +639,59 @@ class TestNoScopePositioning < Minitest::Test
       reload_models
       assert_equal positions, @models.map(&:position)
     end
+  end
+end
+
+class TestSTIPositioning < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def setup
+    @first_list = List.create name: "First List"
+    @second_list = List.create name: "Second List"
+
+    @first_student = @first_list.authors.create name: "First Student", type: "Author::Student"
+    @first_teacher = @first_list.authors.create name: "First Teacher", type: "Author::Teacher"
+    @second_student = @first_list.authors.create name: "Second Student", type: "Author::Student"
+    @second_teacher = @first_list.authors.create name: "Second Teacher", type: "Author::Teacher"
+    @third_student = @first_list.authors.create name: "Third Student", type: "Author::Student"
+    @third_teacher = @first_list.authors.create name: "Third Teacher", type: "Author::Teacher"
+    @fourth_student = @second_list.authors.create name: "Fourth Student", type: "Author::Student"
+    @fourth_teacher = @second_list.authors.create name: "Fourth Teacher", type: "Author::Teacher"
+    @fifth_student = @second_list.authors.create name: "Fifth Student", type: "Author::Student"
+    @fifth_teacher = @second_list.authors.create name: "Fifth Teacher", type: "Author::Teacher"
+    @sixth_student = @second_list.authors.create name: "Sixth Student", type: "Author::Student"
+    @sixth_teacher = @second_list.authors.create name: "Sixth Teacher", type: "Author::Teacher"
+
+    @models = [
+      @first_student, @second_student, @third_student,
+      @fourth_student, @fifth_student, @sixth_student,
+      @first_teacher, @second_teacher, @third_teacher,
+      @fourth_teacher, @fifth_teacher, @sixth_teacher
+    ]
+
+    reload_models
+  end
+
+  def reload_models
+    @models.map(&:reload)
+  end
+
+  def test_initial_positioning
+    assert_equal [1, 2, 3, 4, 5, 6], [
+      @first_student, @first_teacher, @second_student,
+      @second_teacher, @third_student, @third_teacher
+    ].map(&:position)
+
+    assert_equal [1, 2, 3, 4, 5, 6], [
+      @fourth_student, @fourth_teacher, @fifth_student,
+      @fifth_teacher, @sixth_student, @sixth_teacher
+    ].map(&:position)
   end
 end

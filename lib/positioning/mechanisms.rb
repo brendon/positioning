@@ -147,15 +147,11 @@ module Positioning
     end
 
     def positioning_columns
-      @positioned.class.positioning_columns[@column]
+      base_class.positioning_columns[@column]
     end
 
     def positioning_scope
-      @positioned.class.where(
-        positioning_columns.to_h { |scope_component|
-          [scope_component, @positioned.send(scope_component)]
-        }
-      ).order(@column)
+      base_class.where(@positioned.slice(*positioning_columns)).order(@column)
     end
 
     def in_positioning_scope?
