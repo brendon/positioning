@@ -48,6 +48,12 @@ class TestPositioningScopes < Minitest::Test
     end
   end
 
+  def test_that_an_error_is_raised_when_initialising_on_non_base_class
+    assert_raises(Positioning::Error) do
+      Author::Student.send :positioned
+    end
+  end
+
   def test_that_the_default_list_scope_works
     list = List.create name: "First List"
     first_item = list.items.create name: "First Item"
