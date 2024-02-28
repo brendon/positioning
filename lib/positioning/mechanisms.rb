@@ -39,10 +39,6 @@ module Positioning
 
           contract(positioning_scope_was, position_was..)
           expand(positioning_scope, position..)
-
-          # If the position integer was set to the same as its prior value but the scope has changed then
-          # we need to tell Rails that it has changed so that it gets updated from the temporary 0 value.
-          position_will_change!
         elsif position_was > position
           expand(positioning_scope, position..position_was)
         else
@@ -79,10 +75,6 @@ module Positioning
 
     def position_changed?
       @positioned.send :"#{@column}_changed?"
-    end
-
-    def position_will_change!
-      @positioned.send :"#{@column}_will_change!"
     end
 
     def expand(scope, range)

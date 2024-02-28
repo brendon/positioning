@@ -58,17 +58,6 @@ class TestPositioningScopes < Minitest::Test
       Positioning::Mechanisms.new(second_item, :position).send(:positioning_scope)
   end
 
-  def test_that_position_will_always_change_on_scope_change
-    first_list = List.create name: "First List"
-    second_list = List.create name: "Second List"
-    first_item = first_list.items.create name: "First Item"
-
-    first_item.update list: second_list
-    first_item.reload
-
-    assert_equal 1, first_item.position
-  end
-
   def test_that_destroyed_via_positioning_scope_does_not_call_contract
     list = List.create name: "First List"
     list.items.create name: "First Item"
@@ -165,6 +154,17 @@ class TestPositioning < Minitest::Test
 
     assert_equal [1, 2], [@first_item, @third_item].map(&:position)
     assert_equal [1, 2, 3, 4], [@fourth_item, @fifth_item, @sixth_item, @second_item].map(&:position)
+  end
+
+  def test_that_an_item_is_added_to_position_of_a_new_scope_when_explicitly_set
+    @second_item.update list: @second_list, position: 2 # NOTE: The same position it already had
+    @third_item.update list: @second_list, position: 1
+    @first_item.update list: @second_list, position: nil
+    reload_models
+
+    assert @first_list.items.empty?
+    assert_equal @second_list.items, [@third_item, @fourth_item, @second_item, @fifth_item, @sixth_item, @first_item]
+    assert_equal [1, 2, 3, 4, 5, 6], [@third_item, @fourth_item, @second_item, @fifth_item, @sixth_item, @first_item].map(&:position)
   end
 
   def test_that_position_is_assignable_on_create
@@ -669,18 +669,22 @@ class TestSTIPositioning < Minitest::Test
     @sixth_student = @second_list.authors.create name: "Sixth Student", type: "Author::Student"
     @sixth_teacher = @second_list.authors.create name: "Sixth Teacher", type: "Author::Teacher"
 
-    @models = [
-      @first_student, @second_student, @third_student,
-      @fourth_student, @fifth_student, @sixth_student,
-      @first_teacher, @second_teacher, @third_teacher,
-      @fourth_teacher, @fifth_teacher, @sixth_teacher
+    @first_list_models = [
+      @first_student, @first_teacher, @second_student,
+      @second_teacher, @third_student, @third_teacher
+    ]
+
+    @second_list_models = [
+      @fourth_student, @fourth_teacher, @fifth_student,
+      @fifth_teacher, @sixth_student, @sixth_teacher
     ]
 
     reload_models
   end
 
   def reload_models
-    @models.map(&:reload)
+    @first_list_models.map(&:reload)
+    @second_list_models.map(&:reload)
   end
 
   def test_initial_positioning
@@ -693,5 +697,117 @@ class TestSTIPositioning < Minitest::Test
       @fourth_student, @fourth_teacher, @fifth_student,
       @fifth_teacher, @sixth_student, @sixth_teacher
     ].map(&:position)
+  end
+
+  def test_absolute_positioning_create
+    types = ["Author::Student", "Author::Teacher"].cycle
+
+    [[@first_list, @first_list_models], [@second_list, @second_list_models]].each do |(list, models)|
+      positions = [1, 2, 3, 4, 5, 6]
+
+      4.times do |position|
+        model = list.authors.create name: "New Author", position: position, type: types.next
+        models.insert position.clamp(1..3) - 1, model
+        positions.push positions.length + 1
+
+        reload_models
+        assert_equal positions, models.map(&:position)
+      end
+    end
+  end
+
+  def test_relative_positioning_create
+    types = ["Author::Student", "Author::Teacher"].cycle
+
+    [[@first_list, @first_list_models], [@second_list, @second_list_models]].each do |(list, models)|
+      positions = [1, 2, 3, 4, 5, 6]
+
+      [:before, :after].each do |relative_position|
+        [*models.dup, nil].each do |relative_model|
+          model = list.authors.create name: "New Author", position: {"#{relative_position}": relative_model},
+            type: types.next
+
+          if !relative_model
+            if relative_position == :before
+              models.insert models.length, model
+            elsif relative_position == :after
+              models.insert 0, model
+            end
+          elsif model != relative_model
+            if relative_position == :before
+              models.insert models.index(relative_model), model
+            elsif relative_position == :after
+              models.insert models.index(relative_model) + 1, model
+            end
+          end
+
+          positions.push positions.length + 1
+
+          reload_models
+          assert_equal positions, models.map(&:position)
+        end
+      end
+
+      [:first, :last, nil].each do |relative_position|
+        model = list.authors.create name: "New Author", position: relative_position, type: types.next
+
+        case relative_position
+        when :first
+          models.insert 0, model
+        when :last, nil
+          models.insert models.length, model
+        end
+
+        positions.push positions.length + 1
+
+        reload_models
+        assert_equal positions, models.map(&:position)
+      end
+    end
+  end
+
+  def test_absolute_positioning_update
+    [[@first_list, @first_list_models, @second_list, @second_list_models],
+      [@second_list, @second_list_models, @first_list, @first_list_models]]
+      .each do |(list, models, other_list, other_models)|
+      models.dup.each do |model|
+        8.times do |position|
+          model.update position: position
+          models.delete_at models.index(model)
+          models.insert position.clamp(1..6) - 1, model
+
+          reload_models
+          assert_equal [1, 2, 3, 4, 5, 6], models.map(&:position)
+        end
+      end
+    end
+  end
+
+  def test_absolute_positioning_update_scope
+    positions = [1, 2, 3, 4, 5, 6]
+    other_positions = [1, 2, 3, 4, 5, 6]
+
+    [[@first_list, @first_list_models, @second_list, @second_list_models],
+      [@second_list, @second_list_models, @first_list, @first_list_models]]
+      .each do |(list, models, other_list, other_models)|
+      models.dup.each do |model|
+        8.times do |position|
+          model.update position: position, list: other_list
+
+          models.delete_at models.index(model)
+          other_models.insert position.clamp(1..6) - 1, model
+          positions.pop
+          other_positions.push other_positions.length + 1
+
+          reload_models
+          assert_equal positions, models.map(&:position)
+          assert_equal other_positions, other_models.map(&:position)
+
+          list, other_list = other_list, list
+          models, other_models = other_models, models
+          positions, other_positions = other_positions, positions
+        end
+      end
+    end
   end
 end
