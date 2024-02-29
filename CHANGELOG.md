@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.2] - 2024-02-29
+
+- Fix a bug related to the scope changing with an explicitly set position value that is the same as the original position.
+
 ## [0.1.1] - 2024-02-25
 
 - Fix issues with STI based models
