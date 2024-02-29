@@ -521,6 +521,7 @@ class TestNoScopePositioning < Minitest::Test
       positions.push positions.length + 1
 
       reload_models
+      assert_equal Category.all, @models
       assert_equal positions, @models.map(&:position)
     end
   end
@@ -549,6 +550,7 @@ class TestNoScopePositioning < Minitest::Test
         positions.push positions.length + 1
 
         reload_models
+        assert_equal Category.all, @models
         assert_equal positions, @models.map(&:position)
       end
     end
@@ -566,6 +568,7 @@ class TestNoScopePositioning < Minitest::Test
       positions.push positions.length + 1
 
       reload_models
+      assert_equal Category.all, @models
       assert_equal positions, @models.map(&:position)
     end
   end
@@ -576,8 +579,9 @@ class TestNoScopePositioning < Minitest::Test
         model.update position: position
         @models.delete_at @models.index(model)
         @models.insert position.clamp(1..3) - 1, model
-        reload_models
 
+        reload_models
+        assert_equal Category.all, @models
         assert_equal [1, 2, 3], @models.map(&:position)
       end
     end
@@ -608,6 +612,7 @@ class TestNoScopePositioning < Minitest::Test
           end
 
           reload_models
+          assert_equal Category.all, @models
           assert_equal [1, 2, 3], @models.map(&:position)
         end
       end
@@ -627,6 +632,7 @@ class TestNoScopePositioning < Minitest::Test
         end
 
         reload_models
+        assert_equal Category.all, @models
         assert_equal [1, 2, 3], @models.map(&:position)
       end
     end
@@ -643,6 +649,7 @@ class TestNoScopePositioning < Minitest::Test
       positions.pop
 
       reload_models
+      assert_equal Category.all, @models
       assert_equal positions, @models.map(&:position)
     end
   end
@@ -689,6 +696,7 @@ class TestSTIPositioning < Minitest::Test
   end
 
   def reload_models
+    [@first_list, @second_list].map(&:reload)
     @first_list_models.map(&:reload)
     @second_list_models.map(&:reload)
   end
@@ -717,6 +725,7 @@ class TestSTIPositioning < Minitest::Test
         positions.push positions.length + 1
 
         reload_models
+        assert_equal list.authors, models
         assert_equal positions, models.map(&:position)
       end
     end
@@ -750,6 +759,7 @@ class TestSTIPositioning < Minitest::Test
           positions.push positions.length + 1
 
           reload_models
+          assert_equal list.authors, models
           assert_equal positions, models.map(&:position)
         end
       end
@@ -767,6 +777,7 @@ class TestSTIPositioning < Minitest::Test
         positions.push positions.length + 1
 
         reload_models
+        assert_equal list.authors, models
         assert_equal positions, models.map(&:position)
       end
     end
@@ -783,6 +794,7 @@ class TestSTIPositioning < Minitest::Test
           models.insert position.clamp(1..6) - 1, model
 
           reload_models
+          assert_equal list.authors, models
           assert_equal [1, 2, 3, 4, 5, 6], models.map(&:position)
         end
       end
@@ -806,6 +818,8 @@ class TestSTIPositioning < Minitest::Test
           other_positions.push other_positions.length + 1
 
           reload_models
+          assert_equal list.authors, models
+          assert_equal other_list.authors, other_models
           assert_equal positions, models.map(&:position)
           assert_equal other_positions, other_models.map(&:position)
 
@@ -813,6 +827,195 @@ class TestSTIPositioning < Minitest::Test
           models, other_models = other_models, models
           positions, other_positions = other_positions, positions
         end
+      end
+    end
+  end
+
+  def test_relative_positioning_update
+    [[@first_list, @first_list_models], [@second_list, @second_list_models]]
+      .each do |(list, models)|
+      models.dup.each do |model|
+        [:before, :after].each do |relative_position|
+          [*models.dup, nil].each do |relative_model|
+            model.update position: {"#{relative_position}": relative_model}
+
+            if !relative_model
+              models.delete_at models.index(model)
+
+              if relative_position == :before
+                models.insert models.length, model
+              elsif relative_position == :after
+                models.insert 0, model
+              end
+            elsif model != relative_model
+              models.delete_at models.index(model)
+
+              if relative_position == :before
+                models.insert models.index(relative_model), model
+              elsif relative_position == :after
+                models.insert models.index(relative_model) + 1, model
+              end
+            end
+
+            reload_models
+            assert_equal list.authors, models
+            assert_equal [1, 2, 3, 4, 5, 6], models.map(&:position)
+          end
+        end
+
+        [:first, :last, nil].each do |relative_position|
+          model.update position: relative_position
+          models.delete_at models.index(model)
+
+          case relative_position
+          when :first
+            models.insert 0, model
+          when :last, nil
+            models.insert models.length, model
+          end
+
+          reload_models
+          assert_equal list.authors, models
+          assert_equal [1, 2, 3, 4, 5, 6], models.map(&:position)
+        end
+      end
+    end
+  end
+
+  def test_relative_positioning_update_scope
+    positions = [1, 2, 3, 4, 5, 6]
+    other_positions = [1, 2, 3, 4, 5, 6]
+
+    [[@first_list, @first_list_models, @second_list, @second_list_models],
+      [@second_list, @second_list_models, @first_list, @first_list_models]]
+      .each do |(list, models, other_list, other_models)|
+      models.dup.each do |model|
+        [:before, :after].each do |relative_position|
+          other_models.dup.zip(models.dup).flatten.each do |relative_model|
+            model.update position: {"#{relative_position}": relative_model}, list: relative_model.list
+            list_changed = model.list_previously_changed?
+
+            if model != relative_model
+              models.delete_at models.index(model)
+
+              if list_changed
+                if relative_position == :before
+                  other_models.insert other_models.index(relative_model), model
+                elsif relative_position == :after
+                  other_models.insert other_models.index(relative_model) + 1, model
+                end
+
+                positions.pop
+                other_positions.push other_positions.length + 1
+              elsif relative_position == :before
+                models.insert models.index(relative_model), model
+              elsif relative_position == :after
+                models.insert models.index(relative_model) + 1, model
+              end
+            end
+
+            reload_models
+            assert_equal list.authors, models
+            assert_equal other_list.authors, other_models
+            assert_equal positions, models.map(&:position)
+            assert_equal other_positions, other_models.map(&:position)
+
+            if list_changed
+              list, other_list = other_list, list
+              models, other_models = other_models, models
+              positions, other_positions = other_positions, positions
+            end
+          end
+        end
+      end
+    end
+  end
+
+  def test_relative_positioning_update_scope_relative_nil
+    positions = [1, 2, 3, 4, 5, 6]
+    other_positions = [1, 2, 3, 4, 5, 6]
+
+    [[@first_list, @first_list_models, @second_list, @second_list_models],
+      [@second_list, @second_list_models, @first_list, @first_list_models]]
+      .each do |(list, models, other_list, other_models)|
+      models.dup.each do |model|
+        [:before, :after].each do |relative_position|
+          [other_list, list].each do |relative_list|
+            model.update position: {"#{relative_position}": nil}, list: relative_list
+
+            models.delete_at models.index(model)
+
+            if relative_position == :before
+              other_models.insert other_models.length, model
+            elsif relative_position == :after
+              other_models.insert 0, model
+            end
+
+            positions.pop
+            other_positions.push other_positions.length + 1
+
+            reload_models
+            assert_equal list.authors, models
+            assert_equal other_list.authors, other_models
+            assert_equal positions, models.map(&:position)
+            assert_equal other_positions, other_models.map(&:position)
+
+            list, other_list = other_list, list
+            models, other_models = other_models, models
+            positions, other_positions = other_positions, positions
+          end
+        end
+
+        [:first, :last, nil].each do |relative_position|
+          [other_list, list].each do |relative_list|
+            model.update position: relative_position, list: relative_list
+
+            models.delete_at models.index(model)
+
+            case relative_position
+            when :first
+              other_models.insert 0, model
+            when :last, nil
+              other_models.insert other_models.length, model
+            end
+
+            positions.pop
+            other_positions.push other_positions.length + 1
+
+            reload_models
+            assert_equal list.authors, models
+            assert_equal other_list.authors, other_models
+            assert_equal positions, models.map(&:position)
+            assert_equal other_positions, other_models.map(&:position)
+
+            list, other_list = other_list, list
+            models, other_models = other_models, models
+            positions, other_positions = other_positions, positions
+          end
+        end
+      end
+    end
+  end
+
+  def test_destruction
+    second_list_models_for_iteration = @second_list_models.slice(0, 3)
+      .zip(@second_list_models.slice(3, 3)).flatten
+
+    [[@first_list, @first_list_models, @first_list_models.dup],
+      [@second_list, @second_list_models, second_list_models_for_iteration]]
+      .each do |(list, models, models_for_iteration)|
+      positions = [1, 2, 3, 4, 5, 6]
+
+      models_for_iteration.each do |model|
+        index = models.index(model)
+        model.destroy
+
+        models.delete_at index
+        positions.pop
+
+        reload_models
+        assert_equal list.authors, models
+        assert_equal positions, models.map(&:position)
       end
     end
   end
