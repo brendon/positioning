@@ -20,23 +20,14 @@ module Positioning
     end
 
     def update_position
-      # If we're changing scope but not explicitly setting the position then we set the position
-      # to nil so that the item gets placed at the end of the list.
-      self.position = nil if positioning_scope_changed? && !position_changed?
+      clear_position if positioning_scope_changed? && !position_changed?
 
       solidify_position
 
-      # The update strategy is to temporarily set our position to 0, then shift everything out of the way of
-      # our new desired position before finalising it.
       if positioning_scope_changed? || position_changed?
-        record_scope = base_class.where("#{primary_key_column}": primary_key)
-
-        position_was = record_scope.pick(@column)
-        record_scope.update_all "#{@column}": 0
+        move_out_of_the_way
 
         if positioning_scope_changed?
-          positioning_scope_was = base_class.where record_scope.first.slice(*positioning_columns)
-
           contract(positioning_scope_was, position_was..)
           expand(positioning_scope, position..)
         elsif position_was > position
@@ -65,6 +56,10 @@ module Positioning
       @positioned.send primary_key_column
     end
 
+    def record_scope
+      base_class.where("#{primary_key_column}": primary_key)
+    end
+
     def position
       @positioned.send @column
     end
@@ -73,8 +68,21 @@ module Positioning
       @positioned.send :"#{@column}=", position
     end
 
+    def clear_position
+      self.position = nil
+    end
+
     def position_changed?
       @positioned.send :"#{@column}_changed?"
+    end
+
+    def position_was
+      @position_was ||= record_scope.pick(@column)
+    end
+
+    def move_out_of_the_way
+      position_was # Memoize the original position before changing it
+      record_scope.update_all "#{@column}": 0
     end
 
     def expand(scope, range)
@@ -118,8 +126,6 @@ module Positioning
           raise Error.new, "relative `#{@column}` record must be in the same scope"
         end
 
-        position_was = base_class.where("#{primary_key_column}": primary_key).pick(@column)
-
         solidified_position = relative_record_scope.pick(@column)
         solidified_position += 1 if relative_position == :after
         solidified_position -= 1 if in_positioning_scope? && position_was < solidified_position
@@ -143,11 +149,15 @@ module Positioning
     end
 
     def positioning_scope
-      base_class.where(@positioned.slice(*positioning_columns)).order(@column)
+      base_class.where @positioned.slice(*positioning_columns)
+    end
+
+    def positioning_scope_was
+      base_class.where record_scope.first.slice(*positioning_columns)
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.exists?(primary_key)
+      @positioned.persisted? && positioning_scope.where("#{primary_key_column}": primary_key).exists?
     end
 
     def positioning_scope_changed?

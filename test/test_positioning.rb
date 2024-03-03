@@ -8,6 +8,376 @@ require_relative "models/author"
 require_relative "models/author/student"
 require_relative "models/author/teacher"
 
+class TestPositioningMechanisms < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_base_class
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal Author, mechanisms.send(:base_class)
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    assert_equal Author, mechanisms.send(:base_class)
+  end
+
+  def test_primary_key_column
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal "id", mechanisms.send(:primary_key_column)
+  end
+
+  def test_primary_key
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal student.id, mechanisms.send(:primary_key)
+  end
+
+  def test_record_scope
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal Author.where(id: student.id).to_sql, mechanisms.send(:record_scope).to_sql
+  end
+
+  def test_position
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal 1, mechanisms.send(:position)
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    assert_equal 2, mechanisms.send(:position)
+  end
+
+  def test_position=
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    mechanisms.send(:position=, 2)
+    assert_equal 2, student.position
+  end
+
+  def test_clear_position
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    mechanisms.send(:clear_position)
+    assert_nil student.position
+  end
+
+  def test_position_changed?
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    student.position = 2
+    assert mechanisms.send(:position_changed?)
+  end
+
+  def test_position_was
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    student.position = 2
+
+    assert_equal 1, mechanisms.send(:position_was)
+    assert mechanisms.instance_variable_defined? :@position_was
+  end
+
+  def test_move_out_of_the_way
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    mechanisms.send(:move_out_of_the_way)
+
+    assert_equal 1, mechanisms.send(:position_was)
+    assert mechanisms.instance_variable_defined? :@position_was
+    assert_equal 0, Author.where(id: student.id).pick(:position)
+  end
+
+  def test_expand
+    list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+    list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    mechanisms.send(:expand, list.authors, 2..)
+    assert_equal [1, 3, 4], list.authors.pluck(:position)
+  end
+
+  def test_contract
+    list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+    list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    Author.where(id: teacher.id).update_all position: 0
+    mechanisms.send(:contract, list.authors, 2..)
+    assert_equal [0, 1, 2], list.authors.pluck(:position)
+  end
+
+  def test_solidify_position_integer
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+
+    student.position = 0
+    mechanisms.send(:solidify_position)
+    assert_equal 1, student.position
+
+    student.reload
+    student.position = 2
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+
+    student.reload
+    student.position = 3
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+  end
+
+  def test_solidify_position_first_and_after_nil
+    list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+
+    teacher.position = :first
+    mechanisms.send(:solidify_position)
+    assert_equal 1, teacher.position
+
+    teacher.reload
+    teacher.position = {after: nil}
+    mechanisms.send(:solidify_position)
+    assert_equal 1, teacher.position
+  end
+
+  def test_solidify_position_nil_last_and_before_nil
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+
+    student.position = nil
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+
+    student.reload
+    student.position = :last
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+
+    student.reload
+    student.position = {before: nil}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+  end
+
+  def test_solidify_position_before
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+    list.authors.create name: "Teacher", type: "Author::Teacher"
+    last_teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+
+    teacher.position = {before: student}
+    mechanisms.send(:solidify_position)
+    assert_equal 1, teacher.position
+
+    teacher.reload
+    teacher.position = {before: student.id}
+    mechanisms.send(:solidify_position)
+    assert_equal 1, teacher.position
+
+    teacher.reload
+    teacher.position = {before: teacher}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, teacher.position
+
+    teacher.reload
+    teacher.position = {before: last_teacher}
+    mechanisms.send(:solidify_position)
+    assert_equal 3, teacher.position
+  end
+
+  def test_solidify_position_after
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    list.authors.create name: "Teacher", type: "Author::Teacher"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+    last_teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+
+    teacher.position = {after: student}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, teacher.position
+
+    teacher.reload
+    teacher.position = {after: student.id}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, teacher.position
+
+    teacher.reload
+    teacher.position = {after: teacher}
+    mechanisms.send(:solidify_position)
+    assert_equal 3, teacher.position
+
+    teacher.reload
+    teacher.position = {after: last_teacher}
+    mechanisms.send(:solidify_position)
+    assert_equal 4, teacher.position
+  end
+
+  def test_solidify_position_before_new_scope
+    list = List.create name: "List"
+    second_list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+    list.authors.create name: "Teacher", type: "Author::Teacher"
+    other_teacher = second_list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(other_teacher, :position)
+
+    other_teacher.attributes = {position: {before: teacher}, list: list}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, other_teacher.position
+
+    other_teacher.reload
+    other_teacher.attributes = {position: {before: teacher.id}, list: list}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, other_teacher.position
+  end
+
+  def test_solidify_position_after_new_scope
+    list = List.create name: "List"
+    second_list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+    list.authors.create name: "Teacher", type: "Author::Teacher"
+    other_teacher = second_list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(other_teacher, :position)
+
+    other_teacher.attributes = {position: {after: teacher}, list: list}
+    mechanisms.send(:solidify_position)
+    assert_equal 3, other_teacher.position
+
+    other_teacher.reload
+    other_teacher.attributes = {position: {after: teacher.id}, list: list}
+    mechanisms.send(:solidify_position)
+    assert_equal 3, other_teacher.position
+  end
+
+  def test_last_position
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    list.authors.create name: "Student", type: "Author::Student"
+    list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal 3, mechanisms.send(:last_position)
+  end
+
+  def test_positioning_columns
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal ["list_id", "enabled"], mechanisms.send(:positioning_columns)
+  end
+
+  def test_positioning_scope
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal Author.where(list: list, enabled: true).to_sql, mechanisms.send(:positioning_scope).to_sql
+  end
+
+  def test_positioning_scope_was
+    first_list = List.create name: "List"
+    second_list = List.create name: "List"
+    student = first_list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    student.list = second_list
+
+    assert_equal Author.where(list: second_list, enabled: true).to_sql, mechanisms.send(:positioning_scope).to_sql
+
+    assert_equal Author.where(list: first_list, enabled: true).to_sql, mechanisms.send(:positioning_scope_was).to_sql
+  end
+
+  def test_in_positioning_scope?
+    first_list = List.create name: "List"
+    second_list = List.create name: "List"
+    student = first_list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert mechanisms.send(:in_positioning_scope?)
+
+    student.list = second_list
+    refute mechanisms.send(:in_positioning_scope?)
+  end
+
+  def test_positioning_scope_changed?
+    first_list = List.create name: "List"
+    second_list = List.create name: "List"
+    student = first_list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    refute mechanisms.send(:positioning_scope_changed?)
+
+    student.list = second_list
+    assert mechanisms.send(:positioning_scope_changed?)
+  end
+
+  def test_destroyed_via_positioning_scope?
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    refute mechanisms.send(:destroyed_via_positioning_scope?)
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    teacher.destroy
+    refute mechanisms.send(:destroyed_via_positioning_scope?)
+
+    list.destroy
+    assert mechanisms.send(:destroyed_via_positioning_scope?)
+  end
+end
+
 class TestPositioningScopes < Minitest::Test
   include Minitest::Hooks
 
