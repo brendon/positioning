@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Ruby ${{ matrix.ruby }}, DB ${{ matrix.db }}
+    name: Ruby ${{ matrix.ruby }}, DB ${{ matrix.db }}, Rails ${{ matrix.rails }}
     strategy:
       matrix:
         ruby:
@@ -28,6 +28,7 @@ jobs:
           - sqlite
     env:
       DB: ${{ matrix.db }}
+      RAILS_VERSION: ${{ matrix.rails }}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Ruby

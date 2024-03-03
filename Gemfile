@@ -9,7 +9,7 @@ gem "minitest", "~> 5.0"
 
 gem "standard", "~> 1.3"
 
-if ENV["RAILS"]
-  gem "activerecord", ENV["RAILS"]
-  gem "activesupport", ENV["RAILS"]
+if ENV["RAILS_VERSION"]
+  gem "activerecord", ENV["RAILS_VERSION"]
+  gem "activesupport", ENV["RAILS_VERSION"]
 end
