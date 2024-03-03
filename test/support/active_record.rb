@@ -36,8 +36,8 @@ ActiveRecord::Migration.suppress_messages do
       t.references :category, null: false
     end
 
-    add_index :categorised_items, [:list_id, :position], unique: true
-    add_index :categorised_items, [:list_id, :category_id, :category_position], unique: true
+    add_index :categorised_items, [:list_id, :position], unique: true, name: "index_on_list_id_and_position"
+    add_index :categorised_items, [:list_id, :category_id, :category_position], unique: true, name: "index_on_list_id_category_id_and_category_position"
 
     create_table :authors, force: true do |t|
       t.string :name
