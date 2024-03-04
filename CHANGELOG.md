@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.4] - 2024-03-04
+
+- Fix bug relating to relative position hash coming from Rails being a Hash With Indifferent Access
+
 ## [0.1.3] - 2024-03-04
 
 - Internal refactoring of Mechanisms for clarity
