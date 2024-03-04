@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.1.3] - 2024-03-04
+
+- Internal refactoring of Mechanisms for clarity
+- Additional unit testing of Mechanisms
+- Added additional Ruby and Rails versions to the Github Actions matrix
+
 ## [0.1.2] - 2024-02-29
 
 - Fix a bug related to the scope changing with an explicitly set position value that is the same as the original position.
