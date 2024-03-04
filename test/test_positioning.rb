@@ -298,6 +298,18 @@ class TestPositioningMechanisms < Minitest::Test
     assert_equal 3, other_teacher.position
   end
 
+  def test_solidify_position_with_has_with_indifferent_access
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+
+    teacher.position = {before: student}.with_indifferent_access
+    mechanisms.send(:solidify_position)
+    assert_equal 1, teacher.position
+  end
+
   def test_last_position
     list = List.create name: "List"
     student = list.authors.create name: "Student", type: "Author::Student"

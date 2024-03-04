@@ -98,7 +98,7 @@ module Positioning
     def solidify_position
       position_before_type_cast = @positioned.read_attribute_before_type_cast @column
       position_before_type_cast.to_sym if position_before_type_cast.is_a? String
-      position_before_type_cast.symbolize_keys! if position_before_type_cast.is_a? Hash
+      position_before_type_cast = position_before_type_cast.symbolize_keys if position_before_type_cast.is_a? Hash
 
       case position_before_type_cast
       when Integer
