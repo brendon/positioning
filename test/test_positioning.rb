@@ -1263,7 +1263,7 @@ class TestSTIPositioning < Minitest::Test
         [:before, :after].each do |relative_position|
           other_models.dup.zip(models.dup).flatten.each do |relative_model|
             model.update position: {"#{relative_position}": relative_model}, list: relative_model.list
-            list_changed = model.list_previously_changed?
+            list_changed = model.list_id_previously_changed?
 
             if model != relative_model
               models.delete_at models.index(model)
