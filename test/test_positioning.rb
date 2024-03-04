@@ -176,6 +176,11 @@ class TestPositioningMechanisms < Minitest::Test
     teacher.position = {after: nil}
     mechanisms.send(:solidify_position)
     assert_equal 1, teacher.position
+
+    teacher.reload
+    teacher.position = {after: ""}
+    mechanisms.send(:solidify_position)
+    assert_equal 1, teacher.position
   end
 
   def test_solidify_position_nil_last_and_before_nil
@@ -190,12 +195,22 @@ class TestPositioningMechanisms < Minitest::Test
     assert_equal 2, student.position
 
     student.reload
+    student.position = ""
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+
+    student.reload
     student.position = :last
     mechanisms.send(:solidify_position)
     assert_equal 2, student.position
 
     student.reload
     student.position = {before: nil}
+    mechanisms.send(:solidify_position)
+    assert_equal 2, student.position
+
+    student.reload
+    student.position = {before: ""}
     mechanisms.send(:solidify_position)
     assert_equal 2, student.position
   end

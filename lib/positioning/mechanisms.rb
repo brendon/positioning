@@ -103,9 +103,9 @@ module Positioning
       case position_before_type_cast
       when Integer
         self.position = position_before_type_cast.clamp(1..last_position)
-      when :first, {after: nil}
+      when :first, {after: nil}, {after: ""}
         self.position = 1
-      when nil, :last, {before: nil}
+      when nil, "", :last, {before: nil}, {before: ""}
         self.position = last_position
       when Hash
         relative_position, relative_record_or_primary_key = *position_before_type_cast.first
@@ -135,8 +135,9 @@ module Positioning
 
       unless position.is_a? Integer
         raise Error.new,
-          "`#{@column}` must be an Integer, :first, :last, before: #{base_class.name}, " \
-          "after: #{base_class.name}, or nil"
+          %(`#{@column}` must be an Integer, :first, :last, ) +
+            %{before: (#{base_class.name}, #{primary_key_column}, nil, or ""), } +
+            %{after: (#{base_class.name}, #{primary_key_column}, nil or ""), nil or ""}
       end
     end
 
