@@ -39,11 +39,11 @@ The Positioning gem uses `0` and negative integers to rearrange the lists it man
 To declare that your model should keep track of the position of its records you can use the `positioned` method. Here are some examples:
 
 ```ruby
-# The scope is global (all records will belong to the same list) and the databse column
+# The scope is global (all records will belong to the same list) and the database column
 # is 'positioned'
 positioned
 
-# The scope is on the belongs_to relationship 'list' and the databse column is 'positioned'
+# The scope is on the belongs_to relationship 'list' and the database column is 'positioned'
 # We check if the scope is a belongs_to relationship and use its declared foreign_key as
 # the scope value. In this case it would be 'list_id' since we haven't overridden the
 # default foreign key.
@@ -151,9 +151,9 @@ other_item.id # => 11
 item.update position: {after: 11}
 ```
 
-##### Relative Positining in Forms
+##### Relative Positioning in Forms
 
-It can be tricky to provide the hash forms of relative positining using Rails form helpers, but it is possible. We've declared a special `Struct` for you to use for this purpose.
+It can be tricky to provide the hash forms of relative positioning using Rails form helpers, but it is possible. We've declared a special `Struct` for you to use for this purpose.
 
 Firstly you need to allow nested Strong Parameters for the `position` column like so:
 
@@ -165,7 +165,7 @@ end
 
 In the example above we're always declaring what item (by its `id`) we want to position our item **before**. You could change this to `:after` if you'd rather.
 
-Next, in your `new` method you may wish to intialise the `position` column with a value supplied by incoming parameters:
+Next, in your `new` method you may wish to initialise the `position` column with a value supplied by incoming parameters:
 
 ```ruby
 def new
@@ -231,7 +231,7 @@ After checking out the repo, run `bin/setup` to install dependencies. Then, run 
 
 This gem is tested against SQLite, PostgreSQL and MySQL. The default database for testing is MySQL. You can target other databases by prepending the environment variable `DB=sqlite` or `DB=postgresql` before `rake test`. For example: `DB=sqlite rake test`.
 
-The PostgreSQL and MySQL environments are configured under `test/support/database.yml`. You can edit this file, or preferrably adjust your environment to support passwordless socket based connections to these two database engines. You'll also need to manually create a database named `positioning_test` in each.
+The PostgreSQL and MySQL environments are configured under `test/support/database.yml`. You can edit this file, or preferably adjust your environment to support password-less socket based connections to these two database engines. You'll also need to manually create a database named `positioning_test` in each.
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
