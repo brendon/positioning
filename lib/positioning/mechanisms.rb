@@ -96,9 +96,20 @@ module Positioning
     end
 
     def solidify_position
-      position_before_type_cast = @positioned.read_attribute_before_type_cast @column
-      position_before_type_cast.to_sym if position_before_type_cast.is_a? String
-      position_before_type_cast = position_before_type_cast.symbolize_keys if position_before_type_cast.is_a? Hash
+      position_before_type_cast = @positioned.read_attribute_before_type_cast(@column)
+
+      if position_before_type_cast.is_a? String
+        begin
+          position_before_type_cast = JSON.parse(position_before_type_cast, symbolize_names: true)
+        rescue JSON::ParserError
+        end
+
+        if position_before_type_cast.is_a?(String) && position_before_type_cast.present?
+          position_before_type_cast = position_before_type_cast.to_sym
+        end
+      elsif position_before_type_cast.is_a? Hash
+        position_before_type_cast = position_before_type_cast.symbolize_keys
+      end
 
       case position_before_type_cast
       when Integer

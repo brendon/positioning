@@ -146,19 +146,24 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    student.position = 0
-    mechanisms.send(:solidify_position)
-    assert_equal 1, student.position
+    [0, "0", 0.to_json].each do |position|
+      student.reload
+      student.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 1, student.position
+    end
 
     student.reload
     student.position = 2
     mechanisms.send(:solidify_position)
     assert_equal 2, student.position
 
-    student.reload
-    student.position = 3
-    mechanisms.send(:solidify_position)
-    assert_equal 2, student.position
+    [3, "3", 3.to_json].each do |position|
+      student.reload
+      student.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 2, student.position
+    end
   end
 
   def test_solidify_position_first_and_after_nil
@@ -168,19 +173,14 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(teacher, :position)
 
-    teacher.position = :first
-    mechanisms.send(:solidify_position)
-    assert_equal 1, teacher.position
-
-    teacher.reload
-    teacher.position = {after: nil}
-    mechanisms.send(:solidify_position)
-    assert_equal 1, teacher.position
-
-    teacher.reload
-    teacher.position = {after: ""}
-    mechanisms.send(:solidify_position)
-    assert_equal 1, teacher.position
+    [:first, "first", "first".to_json,
+      {after: nil}, {after: nil}.to_json,
+      {after: ""}, {after: ""}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 1, teacher.position
+    end
   end
 
   def test_solidify_position_nil_last_and_before_nil
@@ -190,29 +190,15 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    student.position = nil
-    mechanisms.send(:solidify_position)
-    assert_equal 2, student.position
-
-    student.reload
-    student.position = ""
-    mechanisms.send(:solidify_position)
-    assert_equal 2, student.position
-
-    student.reload
-    student.position = :last
-    mechanisms.send(:solidify_position)
-    assert_equal 2, student.position
-
-    student.reload
-    student.position = {before: nil}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, student.position
-
-    student.reload
-    student.position = {before: ""}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, student.position
+    [nil, nil.to_json, "", "".to_json,
+      :last, "last", "last".to_json,
+      {before: nil}, {before: nil}.to_json,
+      {before: ""}, {before: ""}.to_json].each do |position|
+      student.reload
+      student.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 2, student.position
+    end
   end
 
   def test_solidify_position_before
@@ -224,24 +210,26 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(teacher, :position)
 
-    teacher.position = {before: student}
-    mechanisms.send(:solidify_position)
-    assert_equal 1, teacher.position
+    [{before: student}, {before: student.id}, {before: student.id}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 1, teacher.position
+    end
 
-    teacher.reload
-    teacher.position = {before: student.id}
-    mechanisms.send(:solidify_position)
-    assert_equal 1, teacher.position
+    [{before: teacher}, {before: teacher.id}, {before: teacher.id}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 2, teacher.position
+    end
 
-    teacher.reload
-    teacher.position = {before: teacher}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, teacher.position
-
-    teacher.reload
-    teacher.position = {before: last_teacher}
-    mechanisms.send(:solidify_position)
-    assert_equal 3, teacher.position
+    [{before: last_teacher}, {before: last_teacher.id}, {before: last_teacher.id}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 3, teacher.position
+    end
   end
 
   def test_solidify_position_after
@@ -253,24 +241,26 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(teacher, :position)
 
-    teacher.position = {after: student}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, teacher.position
+    [{after: student}, {after: student.id}, {after: student.id}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 2, teacher.position
+    end
 
-    teacher.reload
-    teacher.position = {after: student.id}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, teacher.position
+    [{after: teacher}, {after: teacher.id}, {after: teacher.id}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 3, teacher.position
+    end
 
-    teacher.reload
-    teacher.position = {after: teacher}
-    mechanisms.send(:solidify_position)
-    assert_equal 3, teacher.position
-
-    teacher.reload
-    teacher.position = {after: last_teacher}
-    mechanisms.send(:solidify_position)
-    assert_equal 4, teacher.position
+    [{after: last_teacher}, {after: last_teacher.id}, {after: last_teacher.id}.to_json].each do |position|
+      teacher.reload
+      teacher.position = position
+      mechanisms.send(:solidify_position)
+      assert_equal 4, teacher.position
+    end
   end
 
   def test_solidify_position_before_new_scope
@@ -283,14 +273,13 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(other_teacher, :position)
 
-    other_teacher.attributes = {position: {before: teacher}, list: list}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, other_teacher.position
-
-    other_teacher.reload
-    other_teacher.attributes = {position: {before: teacher.id}, list: list}
-    mechanisms.send(:solidify_position)
-    assert_equal 2, other_teacher.position
+    [{before: teacher}, {before: teacher.id}, {before: teacher.id}.to_json].each do |position|
+      other_teacher.reload
+      other_teacher.position = position
+      other_teacher.list = list
+      mechanisms.send(:solidify_position)
+      assert_equal 2, other_teacher.position
+    end
   end
 
   def test_solidify_position_after_new_scope
@@ -303,14 +292,13 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(other_teacher, :position)
 
-    other_teacher.attributes = {position: {after: teacher}, list: list}
-    mechanisms.send(:solidify_position)
-    assert_equal 3, other_teacher.position
-
-    other_teacher.reload
-    other_teacher.attributes = {position: {after: teacher.id}, list: list}
-    mechanisms.send(:solidify_position)
-    assert_equal 3, other_teacher.position
+    [{after: teacher}, {after: teacher.id}, {after: teacher.id}.to_json].each do |position|
+      other_teacher.reload
+      other_teacher.position = position
+      other_teacher.list = list
+      mechanisms.send(:solidify_position)
+      assert_equal 3, other_teacher.position
+    end
   end
 
   def test_solidify_position_with_has_with_indifferent_access
