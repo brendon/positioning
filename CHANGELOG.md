@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.6] - 2024-03-05
+
+- Allow the position to be passed as a JSON object so that we can pass in complex positions from the browser more easily.
+
 ## [0.1.5] - 2024-03-04
 
 - Allow empty strings to represent nil for the purposes of solidifying a position
