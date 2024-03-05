@@ -8,6 +8,22 @@ require_relative "models/author"
 require_relative "models/author/student"
 require_relative "models/author/teacher"
 
+class TestRelativePositionStruct < Minitest::Test
+  def test_struct_takes_keyword_arguments
+    relative_position = Positioning::RelativePosition.new(before: 1)
+    assert_equal 1, relative_position.before
+    assert_nil relative_position.after
+
+    relative_position = Positioning::RelativePosition.new(after: 1)
+    assert_equal 1, relative_position.after
+    assert_nil relative_position.before
+
+    relative_position = Positioning::RelativePosition.new(before: 2, after: 1)
+    assert_equal 2, relative_position.before
+    assert_equal 1, relative_position.after
+  end
+end
+
 class TestPositioningMechanisms < Minitest::Test
   include Minitest::Hooks
 

@@ -7,6 +7,8 @@ require "active_support/lazy_load_hooks"
 module Positioning
   class Error < StandardError; end
 
+  RelativePosition = Struct.new(:before, :after, keyword_init: true)
+
   module Behaviour
     extend ActiveSupport::Concern
 

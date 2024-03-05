@@ -82,11 +82,13 @@ If you don't provide a position when creating a record, your record will be adde
 
 To assign a specific position when creating or updating a record you can simply declare a specific value for the database column tracking the position of records (by default this is `position`). The valid options for this column are:
 
-* A specific integer value. Values are automatically clamped to between `1` and the next available position at the end of the list (inclusive). You should use explicit position values as a last resort, instead you can use:
-* `:first` places the record at the start of the list.
-* `:last` places the record at the end of the list.
-* `nil` also places the record at the end of the list.
-* `before:` and `after:` allow you to define the position relative to other records in the list. You can define the relative record by its primary key (usually `id`) or by providing the record itself. You can also provide `nil` in which case the item will be placed at the start or end of the list (see below).
+* A specific integer value as an `Integer` or a `String`. Values are automatically clamped to between `1` and the next available position at the end of the list (inclusive). You should use explicit position values as a last resort, instead you can use:
+* `:first` or `"first"` places the record at the start of the list.
+* `:last` or `"last"` places the record at the end of the list.
+* `nil` and `""` also places the record at the end of the list.
+* `before:` and `after:` allow you to define the position relative to other records in the list. You can define the relative record by its primary key (usually `id`) or by providing the record itself. You can also provide `nil` or `""` in which case the item will be placed at the start or end of the list (see below).
+
+**You can provide the position value as a JSON string and it will be decoded first. This could be useful if you have no other way to provide `before:` or `after:` as a hash (e.g. `"{\"after\":33}"`). See below for a technique to provide `before:` and `after:` using form helpers.**
 
 Position parameters can be strings or symbols, so you can provide them from the browser.
 
@@ -148,6 +150,42 @@ item.update position: {after: other_item}
 other_item.id # => 11
 item.update position: {after: 11}
 ```
+
+##### Relative Positining in Forms
+
+It can be tricky to provide the hash forms of relative positining using Rails form helpers, but it is possible. We've declared a special `Struct` for you to use for this purpose.
+
+Firstly you need to allow nested Strong Parameters for the `position` column like so:
+
+```ruby
+def item_params
+  params.require(:item).permit :name, position: [:before]
+end
+```
+
+In the example above we're always declaring what item (by its `id`) we want to position our item **before**. You could change this to `:after` if you'd rather.
+
+Next, in your `new` method you may wish to intialise the `position` column with a value supplied by incoming parameters:
+
+```ruby
+def new
+  item.position = { before: params[:before] }
+end
+```
+
+You can now just pass the `before` parameter (the `id` of the item you want to add this record before) via the URL to the `new` action. For example: `items/new?before=22`.
+
+In the form itself, so that your intended position survives a failed `create` attempt and form redisplay you can declare the `position` value like so:
+
+```erb
+  <% if item.new_record? %>
+    <%= form.fields :position, model: Positioning::RelativePosition.new(item.position_before_type_cast) do |fields| %>
+      <%= fields.hidden_field :before %>
+    <% end %>
+  <% end %>
+```
+
+The key part here is `Positioning::RelativePosition.new(item.position_before_type_cast)`. `Positioning::RelativePosition` is a `Struct` that can take `before` and `after` as parameters. You should only provide one or the other. Because `position` is an `Integer` column, the hash structure is obliterated when it is assigned but we can still access it with `position_before_type_cast`. Remember to adjust the method if your position column has a different name (e.g. `category_position_before_type_cast`). The `Struct` provides the correct methods for `fields` to display the nested value.
 
 #### Destroying
 
