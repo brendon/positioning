@@ -35,7 +35,7 @@ class TestPositioningMechanisms < Minitest::Test
   end
 
   def test_active_record_is_not_polluted
-    refute Item.const_defined?('Mechanisms')
+    refute Item.const_defined?(:Mechanisms)
   end
 
   def test_base_class
