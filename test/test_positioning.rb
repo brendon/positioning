@@ -18,6 +18,10 @@ class TestPositioningMechanisms < Minitest::Test
     end
   end
 
+  def test_active_record_is_not_polluted
+    refute Item.const_defined?('Mechanisms')
+  end
+
   def test_base_class
     list = List.create name: "List"
     student = list.authors.create name: "Student", type: "Author::Student"
