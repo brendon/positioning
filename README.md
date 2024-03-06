@@ -177,7 +177,7 @@ You can now just pass the `before` parameter (the `id` of the item you want to a
 
 In the form itself, so that your intended position survives a failed `create` attempt and form redisplay you can declare the `position` value like so:
 
-```erb
+```
   <% if item.new_record? %>
     <%= form.fields :position, model: Positioning::RelativePosition.new(item.position_before_type_cast) do |fields| %>
       <%= fields.hidden_field :before %>
