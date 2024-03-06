@@ -155,11 +155,11 @@ item.update position: {after: 11}
 
 It can be tricky to provide the hash forms of relative positioning using Rails form helpers, but it is possible. We've declared a special `Struct` for you to use for this purpose.
 
-Firstly you need to allow nested Strong Parameters for the `position` column like so:
+Firstly you need to allow both scalar and nested Strong Parameters for the `position` column like so:
 
 ```ruby
 def item_params
-  params.require(:item).permit :name, position: [:before]
+  params.require(:item).permit :name, :position, position: [:before]
 end
 ```
 
