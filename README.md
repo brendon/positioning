@@ -159,7 +159,7 @@ Firstly you need to allow both scalar and nested Strong Parameters for the `posi
 
 ```ruby
 def item_params
-  params.require(:item).permit :name, :position, position: [:before]
+  params.require(:item).permit :name, :position, { position: :before }
 end
 ```
 
