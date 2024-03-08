@@ -24,6 +24,30 @@ class TestRelativePositionStruct < Minitest::Test
   end
 end
 
+class TestTransactionSafety < Minitest::Test
+  def test_no_duplicate_row_values
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    students = []
+
+    10.times do
+      threads = 20.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            students << list.authors.create(name: "Student", type: "Author::Student")
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal (1..students.length).to_a, list.authors.map(&:position)
+
+    list.destroy
+  end
+end
+
 class TestPositioningMechanisms < Minitest::Test
   include Minitest::Hooks
 

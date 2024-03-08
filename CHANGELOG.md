@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Add an Advisory Lock to ensure isolation for the entirety of the create, update, and destroy cycles.
+
 ## [0.1.7] - 2024-03-06
 
 - Seperated the Concern that is included into ActiveRecord::Base into its own submodule so that Mechanisms isn't also included.
