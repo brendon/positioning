@@ -43,10 +43,12 @@ module Positioning
             super(position)
           end
 
-          before_save { AdvisoryLock.new(self).aquire }
-          before_destroy { AdvisoryLock.new(self).aquire }
-          after_commit { AdvisoryLock.new(self).release }
-          after_rollback { AdvisoryLock.new(self).release }
+          advisory_lock = AdvisoryLock.new(base_class)
+
+          before_save advisory_lock
+          before_destroy advisory_lock
+          after_commit advisory_lock
+          after_rollback advisory_lock
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }
