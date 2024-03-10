@@ -12,10 +12,12 @@ module Positioning
 
       @adapters = {
         "Mysql2" => Adapter.new(
+          initialise: -> {},
           aquire: -> { connection.execute "SELECT GET_LOCK(#{connection.quote(lock_name)}, -1)" },
           release: -> { connection.execute "SELECT RELEASE_LOCK(#{connection.quote(lock_name)})" }
         ),
         "PostgreSQL" => Adapter.new(
+          initialise: -> {},
           aquire: -> { connection.execute "SELECT pg_advisory_lock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" },
           release: -> { connection.execute "SELECT pg_advisory_unlock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" }
         ),
