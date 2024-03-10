@@ -2,12 +2,13 @@ require "fileutils"
 
 module Positioning
   class AdvisoryLock
-    Adapter = Struct.new(:aquire, :release, keyword_init: true)
+    Adapter = Struct.new(:initialise, :aquire, :release, keyword_init: true)
 
     attr_reader :base_class
 
-    def initialize(base_class)
+    def initialize(base_class, column)
       @base_class = base_class
+      @column = column.to_s
 
       @adapters = {
         "Mysql2" => Adapter.new(
@@ -19,11 +20,12 @@ module Positioning
           release: -> { connection.execute "SELECT pg_advisory_unlock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" }
         ),
         "SQLite" => Adapter.new(
-          aquire: -> {
+          initialise: -> {
             FileUtils.mkdir_p "#{Dir.pwd}/tmp"
             filename = "#{Dir.pwd}/tmp/#{lock_name}.lock"
-            FileUtils.touch filename
-            @file ||= File.open filename, "r+"
+            @file ||= File.open filename, File::RDWR | File::CREAT, 0o644
+          },
+          aquire: -> {
             @file.flock File::LOCK_EX
           },
           release: -> {
@@ -32,7 +34,9 @@ module Positioning
         )
       }
 
-      @adapters.default = Adapter.new(aquire: -> {}, release: -> {})
+      @adapters.default = Adapter.new(initialise: -> {}, aquire: -> {}, release: -> {})
+
+      adapter.initialise.call
     end
 
     def aquire(record)
@@ -43,7 +47,8 @@ module Positioning
       adapter.release.call
     end
 
-    alias_method :before_save, :aquire
+    alias_method :before_create, :aquire
+    alias_method :before_update, :aquire
     alias_method :before_destroy, :aquire
     alias_method :after_commit, :release
     alias_method :after_rollback, :release
@@ -66,6 +71,7 @@ module Positioning
       lock_name = ["positioning"]
       lock_name << connection.current_database if connection.respond_to?(:current_database)
       lock_name << base_class.table_name
+      lock_name << @column
 
       ActiveSupport::Digest.hexdigest lock_name.join(".")
     end
