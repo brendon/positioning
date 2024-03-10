@@ -1,4 +1,5 @@
 require "fileutils"
+require "openssl"
 
 module Positioning
   class AdvisoryLock
@@ -75,7 +76,7 @@ module Positioning
       lock_name << base_class.table_name
       lock_name << @column
 
-      ActiveSupport::Digest.hexdigest lock_name.join(".")
+      OpenSSL::Digest::MD5.hexdigest(lock_name.join("."))[0...32]
     end
   end
 end
