@@ -1,4 +1,5 @@
 require "active_record"
+require_relative "sqlite_transaction_fix"
 
 ENV["DB"] = "mysql" unless ENV["DB"]
 
