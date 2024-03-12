@@ -24,15 +24,15 @@ module Positioning
         ),
         "SQLite" => Adapter.new(
           initialise: -> {
-            # FileUtils.mkdir_p "#{Dir.pwd}/tmp"
-            # filename = "#{Dir.pwd}/tmp/#{lock_name}.lock"
-            # @file ||= File.open filename, File::RDWR | File::CREAT, 0o644
+            FileUtils.mkdir_p "#{Dir.pwd}/tmp"
+            filename = "#{Dir.pwd}/tmp/#{lock_name}.lock"
+            @file ||= File.open filename, File::RDWR | File::CREAT, 0o644
           },
           aquire: -> {
-            # @file.flock File::LOCK_EX
+            @file.flock File::LOCK_EX
           },
           release: -> {
-            # @file.flock File::LOCK_UN
+            @file.flock File::LOCK_UN
           }
         )
       }
