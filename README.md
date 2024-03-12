@@ -227,7 +227,17 @@ It's important to note that in the examples above, `other_item` must already bel
 
 ## Concurrency
 
-The queries that this gem runs, especially those that seek the next position integer available are vulnerable to race conditions. To this end, we've introduced an Advisory Lock to ensure that our model callbacks that determine and assign positions run sequentially. In short, an advisory lock prevents more than one process from running a particular block of code at the same time. The lock occurs in the database (or in the case of SQLite, on the filesystem), so as long as all of your processes are using the same database, the lock will prevent multiple positioning callbacks from executing on the same table and positioning column combination at the same time. You're encouraged to review the Advisory Lock code to ensure it fits with your environment:
+The queries that this gem runs, especially those that seek the next position integer available are vulnerable to race conditions. To this end, we've introduced an Advisory Lock to ensure that our model callbacks that determine and assign positions run sequentially. In short, an advisory lock prevents more than one process from running a particular block of code at the same time. The lock occurs in the database (or in the case of SQLite, on the filesystem), so as long as all of your processes are using the same database, the lock will prevent multiple positioning callbacks from executing on the same table and positioning column combination at the same time.
+
+If you are using SQLite, you'll want to add the following line to your database.yml file in order to increase the exclusivity of Active Record's default write transactions:
+
+```yaml
+default_transaction_mode: EXCLUSIVE
+```
+
+You may also want to try `IMMEDIATE` as a less aggressive alternative.
+
+You're encouraged to review the Advisory Lock code to ensure it fits with your environment:
 
 https://github.com/brendon/positioning/blob/main/lib/positioning/advisory_lock.rb
 
