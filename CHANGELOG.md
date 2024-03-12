@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.0] - 2024-03-12
+
 - Add an Advisory Lock to ensure isolation for the entirety of the create, update, and destroy cycles.
 - Add SQLite Advisory Lock support using a file lock.
 
