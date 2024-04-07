@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fetch the adapter_name from #connection_db_config (@tijn)
+
 ## [0.2.0] - 2024-03-12
 
 - Add an Advisory Lock to ensure isolation for the entirety of the create, update, and destroy cycles.
