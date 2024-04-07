@@ -12,17 +12,17 @@ module Positioning
       @column = column.to_s
 
       @adapters = {
-        "Mysql2" => Adapter.new(
+        "mysql2" => Adapter.new(
           initialise: -> {},
           aquire: -> { connection.execute "SELECT GET_LOCK(#{connection.quote(lock_name)}, -1)" },
           release: -> { connection.execute "SELECT RELEASE_LOCK(#{connection.quote(lock_name)})" }
         ),
-        "PostgreSQL" => Adapter.new(
+        "postgresql" => Adapter.new(
           initialise: -> {},
           aquire: -> { connection.execute "SELECT pg_advisory_lock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" },
           release: -> { connection.execute "SELECT pg_advisory_unlock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" }
         ),
-        "SQLite" => Adapter.new(
+        "sqlite3" => Adapter.new(
           initialise: -> {
             FileUtils.mkdir_p "#{Dir.pwd}/tmp"
             filename = "#{Dir.pwd}/tmp/#{lock_name}.lock"
@@ -63,7 +63,7 @@ module Positioning
     end
 
     def adapter_name
-      connection.adapter_name
+      base_class.connection_db_config.adapter
     end
 
     def adapter
