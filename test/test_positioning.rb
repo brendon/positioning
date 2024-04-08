@@ -7,6 +7,7 @@ require_relative "models/categorised_item"
 require_relative "models/author"
 require_relative "models/author/student"
 require_relative "models/author/teacher"
+require_relative "models/post"
 
 class TestRelativePositionStruct < Minitest::Test
   def test_struct_takes_keyword_arguments
@@ -524,6 +525,37 @@ class TestPositioningScopes < Minitest::Test
     second_item.destroy
 
     assert_equal [1, 2], [first_item.reload, third_item.reload].map(&:position)
+  end
+end
+
+class TestPositioningColumns < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_a_column_named_order_works
+    first_post = Post.create name: "First Post"
+    second_post = Post.create name: "Second Post"
+    third_post = Post.create name: "Third Post"
+
+    assert_equal [1, 2, 3], [first_post.reload, second_post.reload, third_post.reload].map(&:order)
+
+    second_post.update order: {before: first_post}
+
+    assert_equal [1, 2, 3], [second_post.reload, first_post.reload, third_post.reload].map(&:order)
+
+    first_post.update order: {after: third_post}
+
+    assert_equal [1, 2, 3], [second_post.reload, third_post.reload, first_post.reload].map(&:order)
+
+    third_post.destroy
+
+    assert_equal [1, 2], [second_post.reload, first_post.reload].map(&:order)
   end
 end
 

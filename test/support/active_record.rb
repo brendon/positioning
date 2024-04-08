@@ -48,6 +48,13 @@ ActiveRecord::Migration.suppress_messages do
     end
 
     add_index :authors, [:list_id, :enabled, :position], unique: true
+
+    create_table :posts, force: true do |t|
+      t.string :name
+      t.integer :order, null: false
+    end
+
+    add_index :posts, :order, unique: true
   end
 end
 

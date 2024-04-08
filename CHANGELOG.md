@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fetch the adapter_name from #connection_db_config (@tijn)
+- Use `quote_table_name_for_assignment` in `update_all` calls to guard against reserved word column names.
 
 ## [0.2.0] - 2024-03-12
 

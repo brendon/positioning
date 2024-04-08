@@ -56,6 +56,10 @@ module Positioning
       @positioned.send primary_key_column
     end
 
+    def quoted_column
+      base_class.connection.quote_table_name_for_assignment base_class.table_name, @column
+    end
+
     def record_scope
       base_class.where("#{primary_key_column}": primary_key)
     end
@@ -86,13 +90,13 @@ module Positioning
     end
 
     def expand(scope, range)
-      scope.where("#{@column}": range).update_all "#{@column} = #{@column} * -1"
-      scope.where("#{@column}": ..-1).update_all "#{@column} = #{@column} * -1 + 1"
+      scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
+      scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
     end
 
     def contract(scope, range)
-      scope.where("#{@column}": range).update_all "#{@column} = #{@column} * -1"
-      scope.where("#{@column}": ..-1).update_all "#{@column} = #{@column} * -1 - 1"
+      scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
+      scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
     end
 
     def solidify_position
