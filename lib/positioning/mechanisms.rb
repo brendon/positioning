@@ -117,7 +117,8 @@ module Positioning
 
       case position_before_type_cast
       when Integer
-        self.position = position_before_type_cast.clamp(1..last_position)
+        clamped_position = position_before_type_cast.clamp(1..last_position)
+        self.position = clamped_position unless self.position == clamped_position
       when :first, {after: nil}, {after: ""}
         self.position = 1
       when nil, "", :last, {before: nil}, {before: ""}
