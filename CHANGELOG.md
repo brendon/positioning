@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- When destroying a positioned item, first move it out of the way (position = 0) then contract the scope. Do this before destruction. Moving the item out of the way memoizes its original position to cope with the case where multiple items are destroyed with `destroy_all` as they'll have their position column cached. Thanks @james-reading for the report.
+
 ## [0.2.1] - 2024-04-08
 
 - Fetch the adapter_name from #connection_db_config (@tijn)

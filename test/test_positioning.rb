@@ -941,6 +941,13 @@ class TestPositioning < Minitest::Test
       @first_item.update position: :other
     end
   end
+
+  def test_destroying_multiple_items
+    @first_list.items.limit(2).destroy_all
+    @third_item.reload
+
+    assert_equal 1, @third_item.position
+  end
 end
 
 class TestNoScopePositioning < Minitest::Test

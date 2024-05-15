@@ -39,7 +39,10 @@ module Positioning
     end
 
     def destroy_position
-      contract(positioning_scope, (position + 1)..) unless destroyed_via_positioning_scope?
+      unless destroyed_via_positioning_scope?
+        move_out_of_the_way
+        contract(positioning_scope, (position_was + 1)..)
+      end
     end
 
     private

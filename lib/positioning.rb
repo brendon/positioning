@@ -51,7 +51,7 @@ module Positioning
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }
-          after_destroy { Mechanisms.new(self, column).destroy_position }
+          before_destroy { Mechanisms.new(self, column).destroy_position }
 
           after_commit advisory_lock
           after_rollback advisory_lock
