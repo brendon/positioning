@@ -37,26 +37,26 @@ jobs:
       DB: ${{ matrix.db }}
       RAILS_VERSION: ${{ matrix.rails }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ matrix.ruby }}
-        bundler-cache: true
-    - name: Enable MySQL
-      if: ${{ matrix.db == 'mysql' }}
-      run: sudo systemctl start mysql.service
-    - name: Create MySQL Database
-      if: ${{ matrix.db == 'mysql' }}
-      run: mysql -u root -proot -e 'CREATE DATABASE runner;'
-    - name: Enable PostgreSQL
-      if: ${{ matrix.db == 'postgresql' }}
-      run: sudo systemctl start postgresql.service
-    - name: Create PostgreSQL User
-      if: ${{ matrix.db == 'postgresql' }}
-      run: sudo -u postgres -i createuser runner -s
-    - name: Create PostgreSQL Database
-      if: ${{ matrix.db == 'postgresql' }}
-      run: createdb runner
-    - name: Run the default task
-      run: bundle exec rake
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Enable MySQL
+        if: ${{ matrix.db == 'mysql' }}
+        run: sudo systemctl start mysql.service
+      - name: Create MySQL Database
+        if: ${{ matrix.db == 'mysql' }}
+        run: mysql -u root -proot -e 'CREATE DATABASE runner;'
+      - name: Enable PostgreSQL
+        if: ${{ matrix.db == 'postgresql' }}
+        run: sudo systemctl start postgresql.service
+      - name: Create PostgreSQL User
+        if: ${{ matrix.db == 'postgresql' }}
+        run: sudo -u postgres -i createuser runner -s
+      - name: Create PostgreSQL Database
+        if: ${{ matrix.db == 'postgresql' }}
+        run: createdb runner
+      - name: Run the default task
+        run: bundle exec rake

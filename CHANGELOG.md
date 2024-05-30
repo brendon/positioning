@@ -16,7 +16,7 @@
 
 ## [0.1.7] - 2024-03-06
 
-- Seperated the Concern that is included into ActiveRecord::Base into its own submodule so that Mechanisms isn't also included.
+- Separated the Concern that is included into ActiveRecord::Base into its own submodule so that Mechanisms isn't also included.
 - Added the RelativePosition Struct and documentation to make it easier to supply relative positions via form helpers.
 
 ## [0.1.6] - 2024-03-05
