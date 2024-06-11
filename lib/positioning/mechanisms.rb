@@ -84,7 +84,7 @@ module Positioning
     end
 
     def position_was
-      @position_was ||= record_scope.limit(1).pluck(*@column).first # .pick(@column)
+      @position_was ||= record_scope.limit(1).pluck(@column).first # .pick(@column)
     end
 
     def move_out_of_the_way
@@ -144,7 +144,7 @@ module Positioning
           raise Error.new, "relative `#{@column}` record must be in the same scope"
         end
 
-        solidified_position = relative_record_scope.limit(1).pluck(*@column).first # .pick(@column)
+        solidified_position = relative_record_scope.limit(1).pluck(@column).first # .pick(@column)
         solidified_position += 1 if relative_position == :after
         solidified_position -= 1 if in_positioning_scope? && position_was < solidified_position
 
