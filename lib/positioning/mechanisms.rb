@@ -20,6 +20,7 @@ module Positioning
     end
 
     def update_position
+      puts changes
       clear_position if positioning_scope_changed? && !position_changed?
 
       solidify_position
