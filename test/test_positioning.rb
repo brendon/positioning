@@ -624,6 +624,7 @@ class TestPositioning < Minitest::Test
   end
 
   def test_that_an_item_is_added_to_position_of_a_new_scope_when_explicitly_set
+    puts "THIS ONE"
     @second_item.update list: @second_list, position: 2 # NOTE: The same position it already had
     @third_item.update list: @second_list, position: 1
     @first_item.update list: @second_list, position: nil
