@@ -63,7 +63,7 @@ module Positioning
     end
 
     def adapter_name
-      base_class.connection_pool.db_config.adapter # rails 6+ base_class.connection_db_config.adapter
+      base_class.connection_pool.spec.adapter # rails 6+ base_class.connection_db_config.adapter
     end
 
     def adapter
