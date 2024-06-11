@@ -59,4 +59,4 @@ ActiveRecord::Migration.suppress_messages do
 end
 
 # Uncomment the following line to enable SQL logging
-# ActiveRecord::Base.logger = ActiveSupport::Logger.new($stdout)
+ActiveRecord::Base.logger = ActiveSupport::Logger.new($stdout)
