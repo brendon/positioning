@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Simple positioning for Active Record models."
   spec.homepage = "https://github.com/brendon/positioning"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 2.7.8"
+  spec.required_ruby_version = ">= 3.0.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/brendon/positioning"
@@ -27,13 +27,12 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Uncomment to register a new dependency of your gem
-  spec.add_dependency "activesupport", ">= 4.2" # Decreased to enable compatibility
-  spec.add_dependency "activerecord", ">= 4.2" # Decreased to enable compatibility
-  spec.add_dependency "bigdecimal", "~> 1.4.0" # Added to avoid error running tests
+  spec.add_dependency "activesupport", ">= 6.1"
+  spec.add_dependency "activerecord", ">= 6.1"
   spec.add_development_dependency "minitest-hooks", "~> 1.5.1"
   spec.add_development_dependency "mocha", "~> 2.1.0"
   spec.add_development_dependency "mysql2", "~> 0.5.6"
-  spec.add_development_dependency "pg", "~> 0.1" # Changed to older version
+  spec.add_development_dependency "pg", "~> 1.5.5"
   spec.add_development_dependency "sqlite3", "~> 1.7.2"
 
   # For more information and examples about making a new gem, check out our
