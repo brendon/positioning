@@ -19,7 +19,7 @@ module Positioning
       end
 
       def positioned(on: [], column: :position)
-        unless base_class?
+        unless base_class == self # rails 6+ unless base_class?
           raise Error.new "can't be called on an abstract class or STI subclass."
         end
 
