@@ -158,7 +158,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     assert_equal 1, mechanisms.send(:position_was)
     assert mechanisms.instance_variable_defined? :@position_was
-    assert_equal 0, Author.where(id: student.id).pick(:position)
+    assert_equal 0, Author.where(id: student.id).limit(1).pluck(:position).first # .pick(:position)
   end
 
   def test_expand
