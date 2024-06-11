@@ -85,8 +85,6 @@ module Positioning
 
     def position_was
       @position_was ||= record_scope.limit(1).pluck(*@column).first # .pick(@column)
-      puts "@position_was: #{@position_was}"
-      @position_was
     end
 
     def move_out_of_the_way
