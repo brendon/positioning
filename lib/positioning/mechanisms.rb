@@ -20,6 +20,8 @@ module Positioning
     end
 
     def update_position
+      puts "POS CHANGE: #{position_changed?}"
+      puts "PS CHANGE?: #{positioning_scope_changed?}"
       puts @positioned.send(:changes)
       clear_position if positioning_scope_changed? && !position_changed?
 
@@ -77,6 +79,7 @@ module Positioning
     end
 
     def clear_position
+      puts "CLEARED"
       self.position = nil
     end
 
