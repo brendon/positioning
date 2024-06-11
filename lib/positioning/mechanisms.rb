@@ -94,12 +94,14 @@ module Positioning
 
     def expand(scope, range)
       scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      # scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      scope.where("#{@column} <= ?": -1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
     end
 
     def contract(scope, range)
       scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      # scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      scope.where("#{@column} <= ?": -1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
     end
 
     def solidify_position
