@@ -97,7 +97,7 @@ module Positioning
       # scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
 
       if range.end.nil? # This branch for rails < 6
-        scope.where("#{quoted_column} >= ?", range.start).update_all "#{quoted_column} = #{quoted_column} * -1"
+        scope.where("#{quoted_column} >= ?", range.begin).update_all "#{quoted_column} = #{quoted_column} * -1"
       else
         scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
       end
@@ -110,7 +110,7 @@ module Positioning
       # scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
 
       if range.end.nil? # This branch for rails < 6
-        scope.where("#{quoted_column} >= ?", range.start).update_all "#{quoted_column} = #{quoted_column} * -1"
+        scope.where("#{quoted_column} >= ?", range.begin).update_all "#{quoted_column} = #{quoted_column} * -1"
       else
         scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
       end
