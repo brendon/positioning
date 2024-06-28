@@ -18,7 +18,7 @@ module Positioning
         @positioning_columns ||= {}
       end
 
-      def positioned(on: [], column: :position)
+      def positioned(on: [], column: :position, use_advisory_lock: true)
         unless base_class?
           raise Error.new "can't be called on an abstract class or STI subclass."
         end
@@ -43,18 +43,22 @@ module Positioning
             super(position)
           end
 
-          advisory_lock = AdvisoryLock.new(base_class, column)
+          if use_advisory_lock
+            advisory_lock = AdvisoryLock.new(base_class, column)
 
-          before_create advisory_lock
-          before_update advisory_lock
-          before_destroy advisory_lock
+            before_create advisory_lock
+            before_update advisory_lock
+            before_destroy advisory_lock
+          end
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }
           before_destroy { Mechanisms.new(self, column).destroy_position }
 
-          after_commit advisory_lock
-          after_rollback advisory_lock
+          if use_advisory_lock
+            after_commit advisory_lock
+            after_rollback advisory_lock
+          end
         end
       end
     end
