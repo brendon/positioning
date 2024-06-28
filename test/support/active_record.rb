@@ -21,6 +21,14 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :items, [:list_id, :position], unique: true
 
+    create_table :item_without_advisory_locks, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.references :list, null: false
+    end
+
+    add_index :item_without_advisory_locks, [:list_id, :position], unique: true
+
     create_table :categories, force: true do |t|
       t.string :name
       t.integer :position, null: false

@@ -2,6 +2,7 @@ require "test_helper"
 
 require_relative "models/list"
 require_relative "models/item"
+require_relative "models/item_without_advisory_lock"
 require_relative "models/category"
 require_relative "models/categorised_item"
 require_relative "models/author"
@@ -44,6 +45,30 @@ class TestTransactionSafety < Minitest::Test
     end
 
     assert_equal (1..students.length).to_a, list.authors.map(&:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_advisory_lock_is_disabled_and_parent_record_is_locked
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    items = []
+
+    10.times do
+      threads = 20.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            list.with_lock do
+              items << list.item_without_advisory_locks.create(name: "Item")
+            end
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal (1..items.length).to_a, list.item_without_advisory_locks.map(&:position)
 
     list.destroy
   end
