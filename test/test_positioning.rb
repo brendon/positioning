@@ -2,6 +2,7 @@ require "test_helper"
 
 require_relative "models/list"
 require_relative "models/item"
+require_relative "models/item_without_advisory_lock"
 require_relative "models/category"
 require_relative "models/categorised_item"
 require_relative "models/author"
@@ -44,6 +45,89 @@ class TestTransactionSafety < Minitest::Test
     end
 
     assert_equal (1..students.length).to_a, list.authors.map(&:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_advisory_lock_is_disabled_and_parent_record_is_locked
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    items = []
+
+    2.times do
+      threads = 3.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            list.with_lock do
+              items << list.item_without_advisory_locks.create(name: "Item")
+            end
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal (1..items.length).to_a, list.item_without_advisory_locks.map(&:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_updating_and_advisory_lock_is_disabled_and_parent_record_is_locked
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    item_a = list.item_without_advisory_locks.create name: "Item A"
+    item_b = list.item_without_advisory_locks.create name: "Item B"
+    item_c = list.item_without_advisory_locks.create name: "Item C"
+
+    2.times do
+      threads = 3.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            list.with_lock do
+              item_c.update(position: {before: item_a})
+            end
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal item_c.reload.position, 1
+    assert_equal item_a.reload.position, 2
+    assert_equal item_b.reload.position, 3
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_destroying_and_advisory_lock_is_disabled_and_parent_record_is_locked
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    items = []
+    ["A", "B", "C", "D", "E", "F", "G", "H"].each do |name|
+      items << list.item_without_advisory_locks.create(name: name)
+    end
+
+    2.times do
+      threads = 3.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            list.with_lock do
+              items.first.destroy
+              items.shift
+            end
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    items.each(&:reload)
+
+    assert_equal items.sort_by(&:position).pluck(:position, :name), [[1, "G"], [2, "H"]]
+    assert_equal list.item_without_advisory_locks.order(:position).pluck(:position, :name), [[1, "G"], [2, "H"]]
 
     list.destroy
   end

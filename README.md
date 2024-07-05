@@ -66,6 +66,10 @@ positioned on: :type
 belongs_to :list
 belongs_to :category
 positioned on: [:list, :category, :enabled]
+
+# If you do not want to use Advisory Lock, you can disable it entirely by passing the 'advisory_lock' flag as false
+belongs_to :list
+positioned on: :list, advisory_lock: false
 ```
 
 ### Manipulating Positioning
@@ -242,6 +246,33 @@ You're encouraged to review the Advisory Lock code to ensure it fits with your e
 https://github.com/brendon/positioning/blob/main/lib/positioning/advisory_lock.rb
 
 If you have any concerns or improvements please file a GitHub issue.
+
+### Opting out of Advisory Lock
+
+There are cases where Advisory Lock may be unwanted or unnecessary, for instance, if you already lock the parent record in **every** operation that will touch the database on the positioned item, **everywhere** in your application.
+
+Example of such scenario in your application:
+
+```ruby
+list = List.create(name: "List")
+
+list.with_lock do
+  item_a = list.items.create(name: "Item A")
+  item_b = list.items.create(name: "Item B")
+  item_c = list.items.create(name: "Item C")
+
+  item_c.update(position: {before: item_a})
+
+  item_a.destroy
+end
+```
+
+Therefore, making sure you already have another mechanism to avoid race conditions, you can opt out of Advisory Lock by setting `advisory_lock` to `false` when declaring positioning:
+
+```ruby
+belongs_to :list
+positioned on: :list, advisory_lock: false
+```
 
 ## Development
 
