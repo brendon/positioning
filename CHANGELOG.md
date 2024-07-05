@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.2.3] - 2024-07-06
+
+- Advisory Lock can now be optionally turned off via `advisory_lock: false` on your `positioned` call. See the README for more details. Advisory Lock remains on by default. Thanks @joaomarcos96!
+
 ## [0.2.2] - 2024-05-17
 
 - When destroying a positioned item, first move it out of the way (position = 0) then contract the scope. Do this before destruction. Moving the item out of the way memoizes its original position to cope with the case where multiple items are destroyed with `destroy_all` as they'll have their position column cached. Thanks @james-reading for the report.
