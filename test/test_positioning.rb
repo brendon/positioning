@@ -3,6 +3,7 @@ require "test_helper"
 require_relative "models/list"
 require_relative "models/item"
 require_relative "models/item_without_advisory_lock"
+require_relative "models/item_with_composite_primary_key"
 require_relative "models/category"
 require_relative "models/categorised_item"
 require_relative "models/author"
@@ -173,6 +174,14 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
     assert_equal student.id, mechanisms.send(:primary_key)
+  end
+
+  def test_composite_primary_key
+    list = List.create name: "List"
+    item = list.item_with_composite_primary_keys.create item_id: "1", account_id: "1"
+
+    mechanisms = Positioning::Mechanisms.new(item, :position)
+    assert_equal item.id, mechanisms.send(:primary_key)
   end
 
   def test_record_scope

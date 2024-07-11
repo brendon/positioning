@@ -29,6 +29,16 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :item_without_advisory_locks, [:list_id, :position], unique: true
 
+    create_table :item_with_composite_primary_keys, primary_key: [:item_id, :account_id], force: true do |t|
+      t.integer :item_id, null: false
+      t.integer :account_id, null: false
+      t.string :name
+      t.integer :position, null: false
+      t.references :list, null: false
+    end
+
+    add_index :item_with_composite_primary_keys, [:list_id, :position], unique: true
+
     create_table :categories, force: true do |t|
       t.string :name
       t.integer :position, null: false

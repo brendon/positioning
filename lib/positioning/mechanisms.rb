@@ -56,7 +56,11 @@ module Positioning
     end
 
     def primary_key
-      @positioned.send primary_key_column
+      if primary_key_column.is_a? Array
+        primary_key_column.map { |column| @positioned.send column }
+      else
+        @positioned.send primary_key_column
+      end
     end
 
     def quoted_column
@@ -64,7 +68,7 @@ module Positioning
     end
 
     def record_scope
-      base_class.where("#{primary_key_column}": primary_key)
+      base_class.where(Array(primary_key_column).zip(Array(primary_key)).to_h)
     end
 
     def position
@@ -133,12 +137,12 @@ module Positioning
         end
 
         relative_primary_key = if relative_record_or_primary_key.is_a? base_class
-          relative_record_or_primary_key.send(primary_key_column)
+          Array(primary_key_column).map { |column| relative_record_or_primary_key.send(column) }
         else
-          relative_record_or_primary_key
+          Array(relative_record_or_primary_key)
         end
 
-        relative_record_scope = positioning_scope.where("#{primary_key_column}": relative_primary_key)
+        relative_record_scope = positioning_scope.where(Array(primary_key_column).zip(relative_primary_key).to_h)
 
         unless relative_record_scope.exists?
           raise Error.new, "relative `#{@column}` record must be in the same scope"
@@ -154,8 +158,8 @@ module Positioning
       unless position.is_a? Integer
         raise Error.new,
           %(`#{@column}` must be an Integer, :first, :last, ) +
-            %{before: (#{base_class.name}, #{primary_key_column}, nil, or ""), } +
-            %{after: (#{base_class.name}, #{primary_key_column}, nil or ""), nil or ""}
+            %{before: (#{base_class.name}, #{Array(primary_key_column).join(", ")}, nil, or ""), } +
+            %{after: (#{base_class.name}, #{Array(primary_key_column).join(", ")}, nil or ""), nil or ""}
       end
     end
 
@@ -176,7 +180,7 @@ module Positioning
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.where("#{primary_key_column}": primary_key).exists?
+      @positioned.persisted? && positioning_scope.where(Array(primary_key_column).zip(Array(primary_key)).to_h).exists?
     end
 
     def positioning_scope_changed?
