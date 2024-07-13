@@ -177,6 +177,8 @@ class TestPositioningMechanisms < Minitest::Test
   end
 
   def test_composite_primary_key
+    skip "Compsite primary keys are not yet supported in this Rails version." if ActiveRecord.version < RAILS_VERSION_WITTH_COMPOSITE_PRIMARY_KEYS
+
     list = List.create name: "List"
     item = list.item_with_composite_primary_keys.create item_id: "1", account_id: "1"
 
@@ -201,6 +203,20 @@ class TestPositioningMechanisms < Minitest::Test
     assert_equal 1, mechanisms.send(:position)
 
     mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    assert_equal 2, mechanisms.send(:position)
+  end
+
+  def test_cpk_position
+    skip "Compsite primary keys are not yet supported in this Rails version." if ActiveRecord.version < RAILS_VERSION_WITTH_COMPOSITE_PRIMARY_KEYS
+
+    list = List.create name: "List"
+    item1 = list.item_with_composite_primary_keys.create item_id: "1", account_id: "1"
+    item2 = list.item_with_composite_primary_keys.create item_id: "2", account_id: "1"
+
+    mechanisms = Positioning::Mechanisms.new(item1, :position)
+    assert_equal 1, mechanisms.send(:position)
+
+    mechanisms = Positioning::Mechanisms.new(item2, :position)
     assert_equal 2, mechanisms.send(:position)
   end
 
