@@ -61,6 +61,16 @@ module Positioning
           end
         end
       end
+
+      def reset_positions!
+        positioning_columns.each do |column, on_columns|
+          select(*on_columns).distinct.as_json(only: on_columns).each do |filter|
+            where(filter).find_each.with_index do |item, index|
+              item.update_columns column => index + 1
+            end
+          end
+        end
+      end
     end
   end
 end
