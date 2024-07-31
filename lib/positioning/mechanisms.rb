@@ -20,21 +20,20 @@ module Positioning
     end
 
     def update_position
+      return unless positioning_scope_changed? || position_changed?
+
       clear_position if positioning_scope_changed? && !position_changed?
 
       solidify_position
+      move_out_of_the_way
 
-      if positioning_scope_changed? || position_changed?
-        move_out_of_the_way
-
-        if positioning_scope_changed?
-          contract(positioning_scope_was, position_was..)
-          expand(positioning_scope, position..)
-        elsif position_was > position
-          expand(positioning_scope, position..position_was)
-        else
-          contract(positioning_scope, position_was..position)
-        end
+      if positioning_scope_changed?
+        contract(positioning_scope_was, position_was..)
+        expand(positioning_scope, position..)
+      elsif position_was > position
+        expand(positioning_scope, position..position_was)
+      else
+        contract(positioning_scope, position_was..position)
       end
     end
 

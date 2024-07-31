@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.2.4] - 2024-07-31
+
+- Avoid unnecessary SQL queries when the position hasn't changed.
+
 ## [0.2.3] - 2024-07-06
 
 - Advisory Lock can now be optionally turned off via `advisory_lock: false` on your `positioned` call. See the README for more details. Advisory Lock remains on by default. Thanks @joaomarcos96!
