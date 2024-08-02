@@ -50,12 +50,8 @@ module Positioning
       @positioned.class.base_class
     end
 
-    def primary_key_column
-      base_class.primary_key
-    end
-
     def primary_key
-      @positioned.send primary_key_column
+      base_class.primary_key
     end
 
     def quoted_column
@@ -63,7 +59,7 @@ module Positioning
     end
 
     def record_scope
-      base_class.where("#{primary_key_column}": primary_key)
+      base_class.where(primary_key => [@positioned.id])
     end
 
     def position
@@ -125,19 +121,19 @@ module Positioning
       when nil, "", :last, {before: nil}, {before: ""}
         self.position = last_position
       when Hash
-        relative_position, relative_record_or_primary_key = *position_before_type_cast.first
+        relative_position, relative_record_or_id = *position_before_type_cast.first
 
         unless [:before, :after].include? relative_position
           raise Error.new, "relative `#{@column}` must be either :before, :after"
         end
 
-        relative_primary_key = if relative_record_or_primary_key.is_a? base_class
-          relative_record_or_primary_key.send(primary_key_column)
+        relative_id = if relative_record_or_id.is_a? base_class
+          relative_record_or_id.id
         else
-          relative_record_or_primary_key
+          relative_record_or_id
         end
 
-        relative_record_scope = positioning_scope.where("#{primary_key_column}": relative_primary_key)
+        relative_record_scope = positioning_scope.where(primary_key => [relative_id])
 
         unless relative_record_scope.exists?
           raise Error.new, "relative `#{@column}` record must be in the same scope"
@@ -153,8 +149,8 @@ module Positioning
       unless position.is_a? Integer
         raise Error.new,
           %(`#{@column}` must be an Integer, :first, :last, ) +
-            %{before: (#{base_class.name}, #{primary_key_column}, nil, or ""), } +
-            %{after: (#{base_class.name}, #{primary_key_column}, nil or ""), nil or ""}
+            %{before: (#{base_class.name}, #{primary_key}, nil, or ""), } +
+            %{after: (#{base_class.name}, #{primary_key}, nil or ""), nil or ""}
       end
     end
 
@@ -175,7 +171,7 @@ module Positioning
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.where("#{primary_key_column}": primary_key).exists?
+      @positioned.persisted? && positioning_scope.where(primary_key => [@positioned.id]).exists?
     end
 
     def positioning_scope_changed?

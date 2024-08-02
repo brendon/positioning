@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Implemented composite primary key support. Thanks @jackozi for the original PR and the nudge to get this done!
+
 ## [0.2.4] - 2024-07-31
 
 - Avoid unnecessary SQL queries when the position hasn't changed.
