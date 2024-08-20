@@ -6,11 +6,11 @@ module Positioning
     end
 
     def prior
-      positioning_scope.where("#{@column}": position - 1).first
+      positioning_scope.where(@column => position - 1).first
     end
 
     def subsequent
-      positioning_scope.where("#{@column}": position + 1).first
+      positioning_scope.where(@column => position + 1).first
     end
 
     def create_position
@@ -84,17 +84,17 @@ module Positioning
 
     def move_out_of_the_way
       position_was # Memoize the original position before changing it
-      record_scope.update_all "#{@column}": 0
+      record_scope.update_all @column => 0
     end
 
     def expand(scope, range)
-      scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
+      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
     end
 
     def contract(scope, range)
-      scope.where("#{@column}": range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where("#{@column}": ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
+      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
     end
 
     def solidify_position
