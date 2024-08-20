@@ -1,6 +1,7 @@
 require_relative "positioning/version"
 require_relative "positioning/advisory_lock"
 require_relative "positioning/mechanisms"
+require_relative "positioning/healer"
 
 require "active_support/concern"
 require "active_support/lazy_load_hooks"
@@ -59,15 +60,9 @@ module Positioning
             after_commit advisory_lock_callback
             after_rollback advisory_lock_callback
           end
-        end
-      end
 
-      def reset_positions!
-        positioning_columns.each do |column, on_columns|
-          select(*on_columns).distinct.as_json(only: on_columns).each do |filter|
-            where(filter).find_each.with_index do |item, index|
-              item.update_columns column => index + 1
-            end
+          define_singleton_method(:"heal_#{column}_column!") do |order = column|
+            Healer.new(self, column, order).heal
           end
         end
       end
