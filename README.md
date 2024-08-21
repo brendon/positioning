@@ -72,6 +72,36 @@ belongs_to :list
 positioned on: :list, advisory_lock: false
 ```
 
+### Initialising a List
+
+If you are adding `positioning` to a model with existing database records, or you're migrating from another gem like `acts_as_list` or `ranked-model` and have an existing position column, you will need to do some work to ensure you have well formed position values for your records. `positioning` has a helper method per `positioned` declaration that allows you to 'heal' the position column, ensuring that positions are positive integers starting at 1 with no gaps.
+
+For example, in the usual case:
+
+```
+belongs_to :list
+positioned on: :list
+```
+
+you'll have a method called `heal_position_column!`. You can call this method and it will cycle through every existing scope combination in your database (every list with items in this case) and reset those items' position based on their current position order by default. You can pass in a custom order if you don't trust (or don't have) an existing order column. The custom order is passed through to the Active Record `reorder` method, so you can provide anything that that method accepts:
+
+```
+Item.heal_position_column! name: :desc
+```
+
+You may need to introduce your database constraints after healing your position column:
+
+* We recommend a `null: false` constraint on the position column but if your existing column has `NULL` values, you'll need to fix those first. The heal method will heal `NULL` positions but depending on your database engine `NULL` positioned items might be placed at the start of the returned records or at the end (if positioning on the position column). Some databases allow this behaviour to be customised.
+* We also recommend a unique index on the scope columns and the position column. If you have repeated position integers per scope you'll need to use the heal method to fix these first before applying the unique index in a separate migration step.
+
+The heal method name is named after the column used to store position values. By default this is `position` but if you override it then the method name will change:
+
+```
+positioned on: :category, column: :category_position
+```
+
+will have a class method named `heal_category_position_column!`.
+
 ### Manipulating Positioning
 
 The tools for manipulating the position of records in your list have been kept intentionally terse. Priority has also been given to minimal pollution of the model namespace. Only two class methods are defined on all models (`positioning_columns` and `positioned`), and two instance methods are defined on models that call `positioned`:

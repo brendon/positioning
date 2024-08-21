@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Implement list healing so that existing lists can be fixed up when implementing `positioned` or if the list somehow gets corrupted.
 - Tidy up Advisory Lock code.
 
 ## [0.2.5] - 2024-08-10
