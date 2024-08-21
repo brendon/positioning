@@ -2,6 +2,7 @@ require "test_helper"
 
 require_relative "models/list"
 require_relative "models/item"
+require_relative "models/new_item"
 require_relative "models/item_without_advisory_lock"
 require_relative "models/item_with_composite_primary_key"
 require_relative "models/category"
@@ -28,6 +29,17 @@ class TestRelativePositionStruct < Minitest::Test
 end
 
 class TestTransactionSafety < Minitest::Test
+  def test_advisory_lock_on_by_default
+    adapter = Positioning::AdvisoryLock::Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
+
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).returns(adapter).twice
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:acquire).returns(-> {}).once
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:release).returns(-> {}).once
+
+    list = List.create name: "List"
+    list.items.create name: "Item"
+  end
+
   def test_no_duplicate_row_values
     ActiveRecord::Base.connection_handler.clear_all_connections!
 
@@ -52,6 +64,7 @@ class TestTransactionSafety < Minitest::Test
 
   def test_no_duplicate_row_values_when_advisory_lock_is_disabled_and_parent_record_is_locked
     ActiveRecord::Base.connection_handler.clear_all_connections!
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
     items = []
@@ -76,6 +89,7 @@ class TestTransactionSafety < Minitest::Test
 
   def test_no_duplicate_row_values_when_updating_and_advisory_lock_is_disabled_and_parent_record_is_locked
     ActiveRecord::Base.connection_handler.clear_all_connections!
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
     item_a = list.item_without_advisory_locks.create name: "Item A"
@@ -104,6 +118,7 @@ class TestTransactionSafety < Minitest::Test
 
   def test_no_duplicate_row_values_when_destroying_and_advisory_lock_is_disabled_and_parent_record_is_locked
     ActiveRecord::Base.connection_handler.clear_all_connections!
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
     items = []
@@ -1590,6 +1605,99 @@ class TestSTIPositioning < Minitest::Test
         assert_equal list.authors, models
         assert_equal positions, models.map(&:position)
       end
+    end
+  end
+end
+
+class TestInitialisation < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_heal_position
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+
+    first_item = first_list.new_items.create name: "First Item"
+    second_item = first_list.new_items.create name: "Second Item"
+    third_item = first_list.new_items.create name: "Third Item"
+
+    fourth_item = second_list.new_items.create name: "Fourth Item"
+    fifth_item = second_list.new_items.create name: "Fifth Item"
+    sixth_item = second_list.new_items.create name: "Sixth Item"
+
+    first_item.update_columns position: 9
+    second_item.update_columns position: nil
+    third_item.update_columns position: -42
+
+    fourth_item.update_columns position: 0
+    fifth_item.update_columns position: 998
+    sixth_item.update_columns position: 800
+
+    NewItem.heal_position_column!
+
+    if ENV["DB"] == "postgresql"
+      assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
+    else
+      assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:position)
+    end
+
+    assert_equal [1, 2, 3], [fourth_item.reload, sixth_item.reload, fifth_item.reload].map(&:position)
+
+    NewItem.heal_position_column! name: :desc
+
+    assert_equal [1, 2, 3], [third_item.reload, second_item.reload, first_item.reload].map(&:position)
+    assert_equal [1, 2, 3], [sixth_item.reload, fourth_item.reload, fifth_item.reload].map(&:position)
+  end
+
+  def test_heal_position_with_no_scope
+    first_category = Category.create name: "First Category"
+    second_category = Category.create name: "Second Category"
+    third_category = Category.create name: "Third Category"
+
+    first_category.update_columns position: 9
+    second_category.update_columns position: 0
+    third_category.update_columns position: -42
+
+    Category.heal_position_column!
+
+    assert_equal [1, 2, 3], [third_category.reload, second_category.reload, first_category.reload].map(&:position)
+  end
+
+  def test_advisory_lock_on_by_default
+    adapter = Positioning::AdvisoryLock::Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
+
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).returns(adapter).twice
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:acquire).returns(-> {}).once
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:release).returns(-> {}).once
+
+    NewItem.heal_position_column!
+  end
+
+  def test_heal_position_without_advisory_lock
+    first_list = List.create name: "First List"
+
+    first_item = first_list.new_items.create name: "First Item"
+    second_item = first_list.new_items.create name: "Second Item"
+    third_item = first_list.new_items.create name: "Third Item"
+
+    first_item.update_columns other_position: 9
+    second_item.update_columns other_position: nil
+    third_item.update_columns other_position: -42
+
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
+
+    NewItem.heal_other_position_column!
+
+    if ENV["DB"] == "postgresql"
+      assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:other_position)
+    else
+      assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:other_position)
     end
   end
 end
