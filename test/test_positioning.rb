@@ -1641,7 +1641,12 @@ class TestInitialisation < Minitest::Test
 
     NewItem.heal_position_column!
 
-    assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:position)
+    if ENV["DB"] == "postgresql"
+      assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
+    else
+      assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:position)
+    end
+
     assert_equal [1, 2, 3], [fourth_item.reload, sixth_item.reload, fifth_item.reload].map(&:position)
 
     NewItem.heal_position_column! name: :desc
@@ -1689,6 +1694,10 @@ class TestInitialisation < Minitest::Test
 
     NewItem.heal_other_position_column!
 
-    assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:other_position)
+    if ENV["DB"] == "postgresql"
+      assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:other_position)
+    else
+      assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:other_position)
+    end
   end
 end
