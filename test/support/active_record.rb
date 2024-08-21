@@ -24,6 +24,7 @@ ActiveRecord::Migration.suppress_messages do
     create_table :new_items, force: true do |t|
       t.string :name
       t.integer :position
+      t.integer :other_position
       t.references :list, null: false
     end
 

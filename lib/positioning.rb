@@ -44,25 +44,23 @@ module Positioning
             super(position)
           end
 
-          if advisory_lock
-            advisory_lock_callback = AdvisoryLock.new(base_class, column)
+          advisory_locker = AdvisoryLock.new(base_class, column, advisory_lock)
 
-            before_create advisory_lock_callback
-            before_update advisory_lock_callback
-            before_destroy advisory_lock_callback
-          end
+          before_create { advisory_locker.acquire }
+          before_update { advisory_locker.acquire }
+          before_destroy { advisory_locker.acquire }
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }
           before_destroy { Mechanisms.new(self, column).destroy_position }
 
-          if advisory_lock
-            after_commit advisory_lock_callback
-            after_rollback advisory_lock_callback
-          end
+          after_commit { advisory_locker.release }
+          after_rollback { advisory_locker.release }
 
           define_singleton_method(:"heal_#{column}_column!") do |order = column|
-            Healer.new(self, column, order).heal
+            advisory_locker.acquire do
+              Healer.new(self, column, order).heal
+            end
           end
         end
       end

@@ -3,23 +3,24 @@ require "openssl"
 
 module Positioning
   class AdvisoryLock
-    Adapter = Struct.new(:initialise, :aquire, :release, keyword_init: true)
+    Adapter = Struct.new(:initialise, :acquire, :release, keyword_init: true)
 
     attr_reader :base_class
 
-    def initialize(base_class, column)
+    def initialize(base_class, column, enabled)
       @base_class = base_class
       @column = column.to_s
+      @enabled = enabled
 
       @adapters = {
         "mysql2" => Adapter.new(
           initialise: -> {},
-          aquire: -> { connection.execute "SELECT GET_LOCK(#{connection.quote(lock_name)}, -1)" },
+          acquire: -> { connection.execute "SELECT GET_LOCK(#{connection.quote(lock_name)}, -1)" },
           release: -> { connection.execute "SELECT RELEASE_LOCK(#{connection.quote(lock_name)})" }
         ),
         "postgresql" => Adapter.new(
           initialise: -> {},
-          aquire: -> { connection.execute "SELECT pg_advisory_lock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" },
+          acquire: -> { connection.execute "SELECT pg_advisory_lock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" },
           release: -> { connection.execute "SELECT pg_advisory_unlock(#{lock_name.hex & 0x7FFFFFFFFFFFFFFF})" }
         ),
         "sqlite3" => Adapter.new(
@@ -28,7 +29,7 @@ module Positioning
             filename = "#{Dir.pwd}/tmp/#{lock_name}.lock"
             @file ||= File.open filename, File::RDWR | File::CREAT, 0o644
           },
-          aquire: -> {
+          acquire: -> {
             @file.flock File::LOCK_EX
           },
           release: -> {
@@ -37,24 +38,23 @@ module Positioning
         )
       }
 
-      @adapters.default = Adapter.new(initialise: -> {}, aquire: -> {}, release: -> {})
+      @adapters.default = Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
 
-      adapter.initialise.call
+      adapter.initialise.call if @enabled
     end
 
-    def aquire(record)
-      adapter.aquire.call
+    def acquire
+      adapter.acquire.call if @enabled
+
+      if block_given?
+        yield
+        adapter.release.call if @enabled
+      end
     end
 
-    def release(record)
-      adapter.release.call
+    def release
+      adapter.release.call if @enabled
     end
-
-    alias_method :before_create, :aquire
-    alias_method :before_update, :aquire
-    alias_method :before_destroy, :aquire
-    alias_method :after_commit, :release
-    alias_method :after_rollback, :release
 
     private
 

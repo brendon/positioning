@@ -29,6 +29,17 @@ class TestRelativePositionStruct < Minitest::Test
 end
 
 class TestTransactionSafety < Minitest::Test
+  def test_advisory_lock_on_by_default
+    adapter = Positioning::AdvisoryLock::Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
+
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).returns(adapter).twice
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:acquire).returns(-> {}).once
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:release).returns(-> {}).once
+
+    list = List.create name: "List"
+    list.items.create name: "Item"
+  end
+
   def test_no_duplicate_row_values
     ActiveRecord::Base.connection_handler.clear_all_connections!
 
@@ -53,6 +64,7 @@ class TestTransactionSafety < Minitest::Test
 
   def test_no_duplicate_row_values_when_advisory_lock_is_disabled_and_parent_record_is_locked
     ActiveRecord::Base.connection_handler.clear_all_connections!
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
     items = []
@@ -77,6 +89,7 @@ class TestTransactionSafety < Minitest::Test
 
   def test_no_duplicate_row_values_when_updating_and_advisory_lock_is_disabled_and_parent_record_is_locked
     ActiveRecord::Base.connection_handler.clear_all_connections!
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
     item_a = list.item_without_advisory_locks.create name: "Item A"
@@ -105,6 +118,7 @@ class TestTransactionSafety < Minitest::Test
 
   def test_no_duplicate_row_values_when_destroying_and_advisory_lock_is_disabled_and_parent_record_is_locked
     ActiveRecord::Base.connection_handler.clear_all_connections!
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
     items = []
@@ -1648,5 +1662,33 @@ class TestInitialisation < Minitest::Test
     Category.heal_position_column!
 
     assert_equal [1, 2, 3], [third_category.reload, second_category.reload, first_category.reload].map(&:position)
+  end
+
+  def test_advisory_lock_on_by_default
+    adapter = Positioning::AdvisoryLock::Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
+
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).returns(adapter).twice
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:acquire).returns(-> {}).once
+    Positioning::AdvisoryLock::Adapter.any_instance.expects(:release).returns(-> {}).once
+
+    NewItem.heal_position_column!
+  end
+
+  def test_heal_position_without_advisory_lock
+    first_list = List.create name: "First List"
+
+    first_item = first_list.new_items.create name: "First Item"
+    second_item = first_list.new_items.create name: "Second Item"
+    third_item = first_list.new_items.create name: "Third Item"
+
+    first_item.update_columns other_position: 9
+    second_item.update_columns other_position: nil
+    third_item.update_columns other_position: -42
+
+    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
+
+    NewItem.heal_other_position_column!
+
+    assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:other_position)
   end
 end
