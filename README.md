@@ -185,6 +185,10 @@ other_item.id # => 11
 item.update position: {after: 11}
 ```
 
+##### Duplicating (`dup`)
+
+When you call `dup` on an instance in the list, all position columns on the duplicate will be set to `nil` so that when this duplicate is saved it will be added either to the end of the current scopes (if unchanged) or to the end of any new scopes. Of course you can then override the position of the duplicate before you save it if necessary.
+
 ##### Relative Positioning in Forms
 
 It can be tricky to provide the hash forms of relative positioning using Rails form helpers, but it is possible. We've declared a special `Struct` for you to use for this purpose.
