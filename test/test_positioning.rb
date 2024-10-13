@@ -3,7 +3,6 @@ require "test_helper"
 require_relative "models/list"
 require_relative "models/item"
 require_relative "models/new_item"
-require_relative "models/item_without_advisory_lock"
 require_relative "models/item_with_composite_primary_key"
 require_relative "models/category"
 require_relative "models/categorised_item"
@@ -29,18 +28,7 @@ class TestRelativePositionStruct < Minitest::Test
 end
 
 class TestTransactionSafety < Minitest::Test
-  def test_advisory_lock_on_by_default
-    adapter = Positioning::AdvisoryLock::Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
-
-    Positioning::AdvisoryLock.any_instance.expects(:adapter).returns(adapter).twice
-    Positioning::AdvisoryLock::Adapter.any_instance.expects(:acquire).returns(-> {}).once
-    Positioning::AdvisoryLock::Adapter.any_instance.expects(:release).returns(-> {}).once
-
-    list = List.create name: "List"
-    list.items.create name: "Item"
-  end
-
-  def test_no_duplicate_row_values
+  def test_no_duplicate_row_values_when_creating
     ActiveRecord::Base.connection_handler.clear_all_connections!
 
     list = List.create name: "List"
@@ -62,88 +50,72 @@ class TestTransactionSafety < Minitest::Test
     list.destroy
   end
 
-  def test_no_duplicate_row_values_when_advisory_lock_is_disabled_and_parent_record_is_locked
+  def test_no_duplicate_row_values_when_updating
     ActiveRecord::Base.connection_handler.clear_all_connections!
-    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
-    items = []
+    first_student = list.authors.create name: "First Student", type: "Author::Student"
+    second_student = list.authors.create name: "Second Student", type: "Author::Student"
+    third_student = list.authors.create name: "Third Student", type: "Author::Student"
 
-    2.times do
-      threads = 3.times.map do
-        Thread.new do
-          ActiveRecord::Base.connection_pool.with_connection do
-            list.with_lock do
-              items << list.item_without_advisory_locks.create(name: "Item")
-            end
-          end
-        end
+    students = []
+
+    first_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        third_student.update(position: 1)
+        students << third_student
       end
-      threads.each(&:join)
     end
 
-    assert_equal (1..items.length).to_a, list.item_without_advisory_locks.map(&:position)
+    second_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        second_student.update(position: 1)
+        students << second_student
+      end
+    end
+
+    third_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        first_student.update(position: 1)
+        students << first_student
+      end
+    end
+
+    [first_thread, second_thread, third_thread].each(&:join)
+
+    students.each(&:reload)
+
+    assert_equal [1, 2, 3], students.reverse.map(&:position)
 
     list.destroy
   end
 
-  def test_no_duplicate_row_values_when_updating_and_advisory_lock_is_disabled_and_parent_record_is_locked
+  def test_no_duplicate_row_values_when_destroying
     ActiveRecord::Base.connection_handler.clear_all_connections!
-    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
 
     list = List.create name: "List"
-    item_a = list.item_without_advisory_locks.create name: "Item A"
-    item_b = list.item_without_advisory_locks.create name: "Item B"
-    item_c = list.item_without_advisory_locks.create name: "Item C"
+    students = []
 
-    2.times do
-      threads = 3.times.map do
-        Thread.new do
-          ActiveRecord::Base.connection_pool.with_connection do
-            list.with_lock do
-              item_c.update(position: {before: item_a})
-            end
-          end
-        end
-      end
-      threads.each(&:join)
-    end
-
-    assert_equal item_c.reload.position, 1
-    assert_equal item_a.reload.position, 2
-    assert_equal item_b.reload.position, 3
-
-    list.destroy
-  end
-
-  def test_no_duplicate_row_values_when_destroying_and_advisory_lock_is_disabled_and_parent_record_is_locked
-    ActiveRecord::Base.connection_handler.clear_all_connections!
-    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
-
-    list = List.create name: "List"
-    items = []
     ["A", "B", "C", "D", "E", "F", "G", "H"].each do |name|
-      items << list.item_without_advisory_locks.create(name: name)
+      students << list.authors.create(name: name, type: "Author::Student")
     end
 
     2.times do
       threads = 3.times.map do
         Thread.new do
           ActiveRecord::Base.connection_pool.with_connection do
-            list.with_lock do
-              items.first.destroy
-              items.shift
-            end
+            student = students.shift
+            student.destroy
           end
         end
       end
       threads.each(&:join)
     end
 
-    items.each(&:reload)
+    students.each(&:reload)
 
-    assert_equal items.sort_by(&:position).pluck(:position, :name), [[1, "G"], [2, "H"]]
-    assert_equal list.item_without_advisory_locks.order(:position).pluck(:position, :name), [[1, "G"], [2, "H"]]
+    assert_equal [[1, "G"], [2, "H"]], students.sort_by(&:position).pluck(:position, :name)
+    assert_equal [[1, "G"], [2, "H"]], list.authors.order(:position).pluck(:position, :name)
 
     list.destroy
   end
@@ -460,12 +432,12 @@ class TestPositioningMechanisms < Minitest::Test
     assert_equal 3, mechanisms.send(:last_position)
   end
 
-  def test_positioning_columns
+  def test_scope_columns
     list = List.create name: "List"
     student = list.authors.create name: "Student", type: "Author::Student"
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
-    assert_equal ["list_id", "enabled"], mechanisms.send(:positioning_columns)
+    assert_equal ["list_id", "enabled"], mechanisms.send(:scope_columns)
   end
 
   def test_positioning_scope
@@ -549,19 +521,19 @@ class TestPositioningScopes < Minitest::Test
   end
 
   def test_that_position_columns_has_default_column
-    assert_equal({position: ["list_id"]}, Item.positioning_columns)
+    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}}, Item.positioning_columns)
   end
 
   def test_that_position_columns_does_not_need_a_scope
-    assert_equal({position: []}, Category.positioning_columns)
+    assert_equal({position: {scope_columns: [], scope_associations: []}}, Category.positioning_columns)
   end
 
   def test_that_position_columns_can_have_multiple_entries
-    assert_equal({position: ["list_id"], category_position: ["list_id", "category_id"]}, CategorisedItem.positioning_columns)
+    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}, category_position: {scope_columns: ["list_id", "category_id"], scope_associations: [:list, :category]}}, CategorisedItem.positioning_columns)
   end
 
   def test_that_position_columns_will_cope_with_standard_columns
-    assert_equal({position: ["list_id", "enabled"]}, Author.positioning_columns)
+    assert_equal({position: {scope_columns: ["list_id", "enabled"], scope_associations: [:list]}}, Author.positioning_columns)
   end
 
   def test_that_position_columns_must_have_unique_keys
@@ -1667,37 +1639,5 @@ class TestInitialisation < Minitest::Test
     Category.heal_position_column!
 
     assert_equal [1, 2, 3], [third_category.reload, second_category.reload, first_category.reload].map(&:position)
-  end
-
-  def test_advisory_lock_on_by_default
-    adapter = Positioning::AdvisoryLock::Adapter.new(initialise: -> {}, acquire: -> {}, release: -> {})
-
-    Positioning::AdvisoryLock.any_instance.expects(:adapter).returns(adapter).twice
-    Positioning::AdvisoryLock::Adapter.any_instance.expects(:acquire).returns(-> {}).once
-    Positioning::AdvisoryLock::Adapter.any_instance.expects(:release).returns(-> {}).once
-
-    NewItem.heal_position_column!
-  end
-
-  def test_heal_position_without_advisory_lock
-    first_list = List.create name: "First List"
-
-    first_item = first_list.new_items.create name: "First Item"
-    second_item = first_list.new_items.create name: "Second Item"
-    third_item = first_list.new_items.create name: "Third Item"
-
-    first_item.update_columns other_position: 9
-    second_item.update_columns other_position: nil
-    third_item.update_columns other_position: -42
-
-    Positioning::AdvisoryLock.any_instance.expects(:adapter).never
-
-    NewItem.heal_other_position_column!
-
-    if ENV["DB"] == "postgresql"
-      assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:other_position)
-    else
-      assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:other_position)
-    end
   end
 end
