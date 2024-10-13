@@ -56,12 +56,24 @@ module Positioning
       @positioned.class.base_class
     end
 
+    def with_connection
+      if base_class.respond_to? :with_connection
+        base_class.with_connection do |connection|
+          yield connection
+        end
+      else
+        yield base_class.connection
+      end
+    end
+
     def primary_key
       base_class.primary_key
     end
 
     def quoted_column
-      base_class.connection.quote_table_name_for_assignment base_class.table_name, @column
+      with_connection do |connection|
+        connection.quote_table_name_for_assignment base_class.table_name, @column
+      end
     end
 
     def record_scope
