@@ -623,6 +623,43 @@ class TestPositioningColumns < Minitest::Test
   end
 end
 
+class TestDuplication < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_dup_clears_position
+    first_list = List.create name: "First List"
+    first_item = first_list.items.create name: "First Item"
+    second_item = first_list.items.create name: "Second Item"
+    third_item = first_list.items.create name: "Third Item"
+
+    assert_equal [1, 2, 3], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
+
+    last_item = first_item.dup
+    last_item.save
+
+    assert_equal [1, 2, 3, 4], [first_item.reload, second_item.reload, third_item.reload, last_item.reload].map(&:position)
+
+    fifth_item = first_item.dup
+    assert_nil fifth_item.position
+
+    fourth_item = second_item.dup
+    sixth_item = third_item.dup
+
+    second_list = first_list.dup
+    second_list.save
+    second_list.items = fourth_item, fifth_item, sixth_item
+
+    assert_equal [1, 2, 3], [fourth_item.reload, fifth_item.reload, sixth_item.reload].map(&:position)
+  end
+end
+
 class TestPositioning < Minitest::Test
   include Minitest::Hooks
 

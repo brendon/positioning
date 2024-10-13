@@ -60,6 +60,14 @@ module Positioning
         end
       end
     end
+
+    def initialize_dup(other)
+      super
+
+      self.class.positioning_columns.keys.each do |positioning_column|
+        send :"#{positioning_column}=", nil
+      end
+    end
   end
 end
 

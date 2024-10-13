@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.3.0] - 2024-08-21
+
+- POSSIBLY BREAKING: Clear all position columns on a duplicate created with `dup`.
+
 ## [0.2.6] - 2024-08-21
 
 - Implement list healing so that existing lists can be fixed up when implementing `positioned` or if the list somehow gets corrupted.
