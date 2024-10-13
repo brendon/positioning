@@ -14,6 +14,8 @@ module Positioning
     end
 
     def create_position
+      lock_positioning_scope!
+
       solidify_position
 
       expand(positioning_scope, position..)
@@ -21,6 +23,8 @@ module Positioning
 
     def update_position
       return unless positioning_scope_changed? || position_changed?
+
+      lock_positioning_scope!
 
       clear_position if positioning_scope_changed? && !position_changed?
 
@@ -39,6 +43,8 @@ module Positioning
 
     def destroy_position
       unless destroyed_via_positioning_scope?
+        lock_positioning_scope!
+
         move_out_of_the_way
         contract(positioning_scope, (position_was + 1)..)
       end
@@ -50,16 +56,28 @@ module Positioning
       @positioned.class.base_class
     end
 
+    def with_connection
+      if base_class.respond_to? :with_connection
+        base_class.with_connection do |connection|
+          yield connection
+        end
+      else
+        yield base_class.connection
+      end
+    end
+
     def primary_key
       base_class.primary_key
     end
 
     def quoted_column
-      base_class.connection.quote_table_name_for_assignment base_class.table_name, @column
+      with_connection do |connection|
+        connection.quote_table_name_for_assignment base_class.table_name, @column
+      end
     end
 
     def record_scope
-      base_class.where(primary_key => [@positioned.id])
+      base_class.where primary_key => [@positioned.id]
     end
 
     def position
@@ -158,16 +176,32 @@ module Positioning
       (positioning_scope.maximum(@column) || 0) + (in_positioning_scope? ? 0 : 1)
     end
 
-    def positioning_columns
-      base_class.positioning_columns[@column]
+    def scope_columns
+      base_class.positioning_columns[@column][:scope_columns]
+    end
+
+    def scope_associations
+      base_class.positioning_columns[@column][:scope_associations]
     end
 
     def positioning_scope
-      base_class.where @positioned.slice(*positioning_columns)
+      base_class.where @positioned.slice(*scope_columns)
+    end
+
+    def lock_positioning_scope!
+      if scope_associations.present?
+        scope_associations.each do |scope_association|
+          record_scope.first.send(scope_association).lock! if @positioned.persisted? && positioning_scope_changed?
+          @positioned.send(scope_association).lock!
+        end
+      else
+        positioning_scope_was.lock! if @positioned.persisted? && positioning_scope_changed?
+        positioning_scope.lock!
+      end
     end
 
     def positioning_scope_was
-      base_class.where record_scope.first.slice(*positioning_columns)
+      base_class.where record_scope.first.slice(*scope_columns)
     end
 
     def in_positioning_scope?
@@ -175,14 +209,14 @@ module Positioning
     end
 
     def positioning_scope_changed?
-      positioning_columns.any? do |scope_component|
-        @positioned.attribute_changed?(scope_component)
+      scope_columns.any? do |scope_column|
+        @positioned.attribute_changed?(scope_column)
       end
     end
 
     def destroyed_via_positioning_scope?
-      @positioned.destroyed_by_association && positioning_columns.any? do |scope_component|
-        @positioned.destroyed_by_association.foreign_key == scope_component
+      @positioned.destroyed_by_association && scope_columns.any? do |scope_column|
+        @positioned.destroyed_by_association.foreign_key == scope_column
       end
     end
   end
