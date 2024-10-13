@@ -34,6 +34,8 @@ jobs:
             ruby: '3.2'
           - rails: '7.0'
             ruby: '3.3'
+          - rails: '7.2'
+            ruby: '3.0'
     env:
       DB: ${{ matrix.db }}
       RAILS_VERSION: ${{ matrix.rails }}
