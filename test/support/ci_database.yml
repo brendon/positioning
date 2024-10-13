@@ -1,8 +1,8 @@
 sqlite:
   adapter: sqlite3
   database: db/test.sqlite3
-  pool: 20
-  timeout: 50000
+  pool: 1
+  timeout: 5000
 
 mysql:
   adapter: mysql2
