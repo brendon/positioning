@@ -8,7 +8,7 @@ module Positioning
 
     def heal
       if positioning_columns.present?
-        @model.select(*positioning_columns).distinct.each do |scope_record|
+        @model.unscoped.select(*positioning_columns).distinct.each do |scope_record|
           sequence @model.where(scope_record.slice(*positioning_columns))
         end
       else
