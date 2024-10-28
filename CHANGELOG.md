@@ -1,6 +1,6 @@
 ## [Unreleased]
 
-## [0.3.0] - 2024-08-21
+## [0.3.0] - 2024-10-12
 
 - POSSIBLY BREAKING: Clear all position columns on a duplicate created with `dup`.
 
