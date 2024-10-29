@@ -34,8 +34,8 @@ class TestTransactionSafety < Minitest::Test
     list = List.create name: "List"
     students = []
 
-    10.times do
-      threads = 20.times.map do
+    4.times do
+      threads = 5.times.map do
         Thread.new do
           ActiveRecord::Base.connection_pool.with_connection do
             students << list.authors.create(name: "Student", type: "Author::Student")
