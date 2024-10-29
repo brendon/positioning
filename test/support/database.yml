@@ -3,7 +3,6 @@ sqlite:
   database: db/test.sqlite3
   pool: 20
   timeout: 5000
-  default_transaction_mode: IMMEDIATE
 
 mysql:
   adapter: mysql2
