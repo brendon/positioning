@@ -265,48 +265,11 @@ It's important to note that in the examples above, `other_item` must already bel
 
 ## Concurrency
 
-The queries that this gem runs, especially those that seek the next position integer available are vulnerable to race conditions. To this end, we've introduced an Advisory Lock to ensure that our model callbacks that determine and assign positions run sequentially. In short, an advisory lock prevents more than one process from running a particular block of code at the same time. The lock occurs in the database (or in the case of SQLite, on the filesystem), so as long as all of your processes are using the same database, the lock will prevent multiple positioning callbacks from executing on the same table and positioning column combination at the same time.
+The queries that this gem runs (especially those that seek the next position integer available) are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
 
-If you are using SQLite, you'll want to add the following line to your database.yml file in order to increase the exclusivity of Active Record's default write transactions:
-
-```yaml
-default_transaction_mode: EXCLUSIVE
-```
-
-You may also want to try `IMMEDIATE` as a less aggressive alternative.
-
-You're encouraged to review the Advisory Lock code to ensure it fits with your environment:
-
-https://github.com/brendon/positioning/blob/main/lib/positioning/advisory_lock.rb
+**Please Note SQLite Users:** Row locking isn't supported by SQLite. Since writes are non-concurrent by default, the worst you'll probably see are errors about the database being locked under high load.
 
 If you have any concerns or improvements please file a GitHub issue.
-
-### Opting out of Advisory Lock
-
-There are cases where Advisory Lock may be unwanted or unnecessary, for instance, if you already lock the parent record in **every** operation that will touch the database on the positioned item, **everywhere** in your application.
-
-Example of such scenario in your application:
-
-```ruby
-list = List.create(name: "List")
-
-list.with_lock do
-  item_a = list.items.create(name: "Item A")
-  item_b = list.items.create(name: "Item B")
-  item_c = list.items.create(name: "Item C")
-
-  item_c.update(position: {before: item_a})
-
-  item_a.destroy
-end
-```
-
-Therefore, making sure you already have another mechanism to avoid race conditions, you can opt out of Advisory Lock by setting `advisory_lock` to `false` when declaring positioning:
-
-```ruby
-belongs_to :list
-positioned on: :list, advisory_lock: false
-```
 
 ## Development
 
