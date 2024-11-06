@@ -66,6 +66,14 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :authors, [:list_id, :enabled, :position], unique: true
 
+    create_table :blogs, force: true do |t|
+      t.string :name
+      t.boolean :enabled, default: true
+      t.integer :position, null: false
+    end
+
+    add_index :blogs, [:position, :enabled], unique: true
+
     create_table :posts, force: true do |t|
       t.string :name
       t.integer :order, null: false

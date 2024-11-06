@@ -9,6 +9,7 @@ require_relative "models/categorised_item"
 require_relative "models/author"
 require_relative "models/author/student"
 require_relative "models/author/teacher"
+require_relative "models/blog"
 require_relative "models/post"
 
 class TestRelativePositionStruct < Minitest::Test
@@ -153,6 +154,16 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
     assert_equal "id", mechanisms.send(:primary_key)
+  end
+
+  def test_with_connection
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    mechanisms.send(:with_connection) do |connection|
+      assert_kind_of ActiveRecord::ConnectionAdapters::AbstractAdapter, connection
+    end
   end
 
   def test_record_scope
@@ -438,6 +449,61 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
     assert_equal ["list_id", "enabled"], mechanisms.send(:scope_columns)
+  end
+
+  def test_scope_associations
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+    assert_equal [:list], mechanisms.send(:scope_associations)
+  end
+
+  def test_lock_positioning_scope_with_new_record_and_scope_association
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+
+    student.list.expects(:lock!).once
+    mechanisms.send(:lock_positioning_scope!)
+  end
+
+  def test_lock_positioning_scope_with_persisted_record_and_scope_association_change
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    student = first_list.authors.create name: "Student", type: "Author::Student"
+    student.list = second_list
+
+    mechanisms = Positioning::Mechanisms.new(student, :position)
+
+    List.any_instance.expects(:lock!).twice
+    mechanisms.send(:lock_positioning_scope!)
+  end
+
+  def test_lock_positioning_scope_with_only_scope_columns
+    blog = Blog.create name: "Blog"
+    mechanisms = Positioning::Mechanisms.new(blog, :position)
+
+    ActiveRecord::Relation.any_instance.expects(:lock!).once
+    mechanisms.send(:lock_positioning_scope!)
+  end
+
+  def test_lock_positioning_scope_with_only_scope_columns_on_persisted_record_and_scope_change
+    blog = Blog.create name: "Blog"
+    blog.enabled = false
+    mechanisms = Positioning::Mechanisms.new(blog, :position)
+
+    ActiveRecord::Relation.any_instance.expects(:lock!).twice
+    mechanisms.send(:lock_positioning_scope!)
+  end
+
+  def test_lock_positioning_scope_without_scope_association
+    category = Category.create name: "Category"
+    mechanisms = Positioning::Mechanisms.new(category, :position)
+
+    ActiveRecord::Relation.any_instance.expects(:lock!).once
+    mechanisms.send(:lock_positioning_scope!)
   end
 
   def test_positioning_scope
