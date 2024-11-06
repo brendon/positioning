@@ -37,10 +37,6 @@ jobs:
             ruby: '3.3'
           - rails: '7.2'
             ruby: '3.0'
-          - rails: '7.0'
-            db: sqlite
-          - rails: '6.1'
-            db: sqlite
     env:
       DB: ${{ matrix.db }}
       RAILS_VERSION: ${{ matrix.rails }}
