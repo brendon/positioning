@@ -265,7 +265,7 @@ It's important to note that in the examples above, `other_item` must already bel
 
 ## Concurrency
 
-The queries that this gem runs, especially those that seek the next position integer available are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
+The queries that this gem runs (especially those that seek the next position integer available) are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
 
 If you have any concerns or improvements please file a GitHub issue.
 
