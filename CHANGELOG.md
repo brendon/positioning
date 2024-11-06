@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [0.4.0] - 2024-10-12
+
+- BREAKING CHANGE: Advisory Lock has been removed. If you explicitly define `advisory_lock: false` in your `positioned` call, you'll need to remove this.
+- CAUTION: The Advisory Lock replacement is row locking. Where `belongs_to` associations exist, we lock the associated record(s), and that limits the locking scope down to the record's current scope, and potentially the scope it belonged to before a change in scope. If there are no `belongs_to` associations then the records that belong to the current (and potentially new) scope are locked, or all the records in the table are locked if there is no scope. Please report any deadlock issues.
+
 ## [0.3.0] - 2024-10-12
 
 - POSSIBLY BREAKING: Clear all position columns on a duplicate created with `dup`.
