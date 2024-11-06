@@ -77,8 +77,11 @@ ActiveRecord::Migration.suppress_messages do
     create_table :posts, force: true do |t|
       t.string :name
       t.integer :order, null: false
+      t.integer :position, null: false
+      t.references :blog
     end
 
+    add_index :posts, [:blog_id, :position], unique: true
     add_index :posts, :order, unique: true
   end
 end

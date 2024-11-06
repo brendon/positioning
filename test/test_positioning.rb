@@ -506,6 +506,18 @@ class TestPositioningMechanisms < Minitest::Test
     mechanisms.send(:lock_positioning_scope!)
   end
 
+  def test_lock_positioning_scope_with_optional_scope_association
+    blog = Blog.create name: "Blog"
+    blog.posts.create name: "First Post"
+    second_post = Post.create name: "Second Post"
+    second_post.blog = blog
+
+    mechanisms = Positioning::Mechanisms.new(second_post, :position)
+
+    second_post.blog.expects(:lock!).once
+    mechanisms.send(:lock_positioning_scope!)
+  end
+
   def test_positioning_scope
     list = List.create name: "List"
     student = list.authors.create name: "Student", type: "Author::Student"

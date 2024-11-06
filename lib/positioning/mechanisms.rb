@@ -191,11 +191,17 @@ module Positioning
     def lock_positioning_scope!
       if scope_associations.present?
         scope_associations.each do |scope_association|
-          record_scope.first.send(scope_association).lock! if @positioned.persisted? && positioning_scope_changed?
-          @positioned.send(scope_association).lock!
+          if @positioned.persisted? && positioning_scope_changed?
+            record_scope.first.send(scope_association)&.lock!
+          end
+
+          @positioned.send(scope_association)&.lock!
         end
       else
-        positioning_scope_was.lock! if @positioned.persisted? && positioning_scope_changed?
+        if @positioned.persisted? && positioning_scope_changed?
+          positioning_scope_was.lock!
+        end
+
         positioning_scope.lock!
       end
     end

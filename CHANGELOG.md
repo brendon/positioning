@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.4.1] - 2024-10-12
+
+- Fix locking where a `belongs_to` association is `optional: true`.
+
 ## [0.4.0] - 2024-10-12
 
 - BREAKING CHANGE: Advisory Lock has been removed. If you explicitly define `advisory_lock: false` in your `positioned` call, you'll need to remove this.
