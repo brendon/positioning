@@ -1,4 +1,4 @@
-class ItemWithCompositePrimaryKey < ActiveRecord::Base
+class CompositePrimaryKeyItem < ActiveRecord::Base
   self.primary_key = [:item_id, :account_id]
 
   belongs_to :list

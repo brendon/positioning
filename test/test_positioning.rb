@@ -3,7 +3,7 @@ require "test_helper"
 require_relative "models/list"
 require_relative "models/item"
 require_relative "models/new_item"
-require_relative "models/item_with_composite_primary_key"
+require_relative "models/composite_primary_key_item"
 require_relative "models/category"
 require_relative "models/categorised_item"
 require_relative "models/author"
@@ -1145,7 +1145,7 @@ class TestCompositePrimaryKeyPositioning < TestPositioning
   def configure
     skip if ActiveRecord.version < Gem::Version.new("7.1.0")
 
-    @association = :item_with_composite_primary_keys
+    @association = :composite_primary_key_items
     @id = Enumerator.new do |yielder|
       number = 1
 

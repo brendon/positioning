@@ -28,7 +28,7 @@ ActiveRecord::Migration.suppress_messages do
       t.references :list, null: false
     end
 
-    create_table :item_with_composite_primary_keys, primary_key: [:item_id, :account_id], force: true do |t|
+    create_table :composite_primary_key_items, primary_key: [:item_id, :account_id], force: true do |t|
       t.integer :item_id, null: false
       t.integer :account_id, null: false
       t.string :name
@@ -36,7 +36,7 @@ ActiveRecord::Migration.suppress_messages do
       t.references :list, null: false
     end
 
-    add_index :item_with_composite_primary_keys, [:list_id, :position], unique: true
+    add_index :composite_primary_key_items, [:list_id, :position], unique: true
 
     create_table :categories, force: true do |t|
       t.string :name
