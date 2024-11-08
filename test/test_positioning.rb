@@ -633,7 +633,7 @@ class TestPositioningScopes < Minitest::Test
     third_item = list.items.create name: "Third Item"
 
     assert_equal [first_item, second_item, third_item],
-      Positioning::Mechanisms.new(second_item, :position).send(:positioning_scope)
+      Positioning::Mechanisms.new(second_item, :position).send(:positioning_scope).order(:position)
   end
 
   def test_that_destroyed_via_positioning_scope_does_not_call_contract
