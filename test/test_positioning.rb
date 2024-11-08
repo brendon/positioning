@@ -465,7 +465,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    student.list.expects(:lock!).once
+    List.expects(:lock).once.returns(List)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -477,7 +477,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    List.any_instance.expects(:lock!).twice
+    List.expects(:lock).twice.returns(List)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -485,7 +485,7 @@ class TestPositioningMechanisms < Minitest::Test
     blog = Blog.create name: "Blog"
     mechanisms = Positioning::Mechanisms.new(blog, :position)
 
-    ActiveRecord::Relation.any_instance.expects(:lock!).once
+    ActiveRecord::Relation.any_instance.expects(:lock).once.returns(Blog)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -494,7 +494,7 @@ class TestPositioningMechanisms < Minitest::Test
     blog.enabled = false
     mechanisms = Positioning::Mechanisms.new(blog, :position)
 
-    ActiveRecord::Relation.any_instance.expects(:lock!).twice
+    ActiveRecord::Relation.any_instance.expects(:lock).twice.returns(Blog)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -502,7 +502,7 @@ class TestPositioningMechanisms < Minitest::Test
     category = Category.create name: "Category"
     mechanisms = Positioning::Mechanisms.new(category, :position)
 
-    ActiveRecord::Relation.any_instance.expects(:lock!).once
+    ActiveRecord::Relation.any_instance.expects(:lock).once.returns(Category)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -514,7 +514,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(second_post, :position)
 
-    second_post.blog.expects(:lock!).once
+    Blog.expects(:lock).once.returns(Blog)
     mechanisms.send(:lock_positioning_scope!)
   end
 
