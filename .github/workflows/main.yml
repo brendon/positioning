@@ -24,6 +24,7 @@ jobs:
           - '7.0'
           - '7.1'
           - '7.2'
+          - '8.0'
         db:
           - mysql
           - postgresql
