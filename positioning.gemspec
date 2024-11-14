@@ -29,11 +29,6 @@ Gem::Specification.new do |spec|
   # Uncomment to register a new dependency of your gem
   spec.add_dependency "activesupport", ">= 6.1"
   spec.add_dependency "activerecord", ">= 6.1"
-  spec.add_development_dependency "minitest-hooks", "~> 1.5.1"
-  spec.add_development_dependency "mocha", "~> 2.1.0"
-  spec.add_development_dependency "mysql2", ">= 0.5.6"
-  spec.add_development_dependency "pg", ">= 1.5.5"
-  spec.add_development_dependency "sqlite3", ">= 1.7.2"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
