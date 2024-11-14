@@ -40,10 +40,10 @@ To declare that your model should keep track of the position of its records you 
 
 ```ruby
 # The scope is global (all records will belong to the same list) and the database column
-# is 'positioned'
+# is 'position'
 positioned
 
-# The scope is on the belongs_to relationship 'list' and the database column is 'positioned'
+# The scope is on the belongs_to relationship 'list' and the database column is 'position'
 # We check if the scope is a belongs_to relationship and use its declared foreign_key as
 # the scope value. In this case it would be 'list_id' since we haven't overridden the
 # default foreign key.
