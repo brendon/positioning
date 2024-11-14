@@ -17,9 +17,9 @@ if ENV["RAILS_VERSION"]
 end
 
 case ENV["DB"]
-when sqlite
+when 'sqlite'
   gem "sqlite3"
-when postgresql
+when 'postgresql'
   gem "pg"
 else
   gem "mysql2"
