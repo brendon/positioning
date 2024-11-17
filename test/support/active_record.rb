@@ -19,7 +19,7 @@ ActiveRecord::Migration.suppress_messages do
       t.references :includable, polymorphic: true
     end
 
-    add_index :entities, [:includable_id, :includable_type, :position], unique: true
+    add_index :entities, [:includable_id, :includable_type, :position], unique: true, name: 'index_entities_on_includable_and_position'
 
     create_table :items, force: true do |t|
       t.string :name
