@@ -66,10 +66,6 @@ positioned on: :type
 belongs_to :list
 belongs_to :category
 positioned on: [:list, :category, :enabled]
-
-# If you do not want to use Advisory Lock, you can disable it entirely by passing the 'advisory_lock' flag as false
-belongs_to :list
-positioned on: :list, advisory_lock: false
 ```
 
 ### Initialising a List
