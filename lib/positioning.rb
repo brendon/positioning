@@ -36,6 +36,7 @@ module Positioning
 
             if reflection&.belongs_to?
               positioning_columns[column][:scope_columns] << reflection.foreign_key
+              positioning_columns[column][:scope_columns] << reflection.foreign_type if reflection.polymorphic?
               positioning_columns[column][:scope_associations] << reflection.name
             else
               positioning_columns[column][:scope_columns] << scope_component

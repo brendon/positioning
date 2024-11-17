@@ -32,6 +32,10 @@ You should also add an index to ensure that the `position` column value is uniqu
 
 The above assumes that your items are scoped to a parent table called `lists`.
 
+If you have a polymorphic `belongs_to` then you'll want to add the type column to the index also:
+
+`add_index :items, [:listable_id, :listable_type, :position], unique: true`
+
 The Positioning gem uses `0` and negative integers to rearrange the lists it manages so don't add database validations to restrict the usage of these. You are also restricted from using `0` and negative integers as position values. If you try, the position value will become `1`. If you try to set an explicit position value that is greater than the next available list position, it will be rounded down to that value.
 
 ### Declaring Positioning
@@ -66,6 +70,10 @@ positioned on: :type
 belongs_to :list
 belongs_to :category
 positioned on: [:list, :category, :enabled]
+
+# If your belongs_to is polymorphic positioning will automatically add the type to the scope
+belongs_to :listable, polymorphic: true
+positioned on: :listable
 ```
 
 ### Initialising a List

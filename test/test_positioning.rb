@@ -11,6 +11,7 @@ require_relative "models/author/student"
 require_relative "models/author/teacher"
 require_relative "models/blog"
 require_relative "models/post"
+require_relative "models/entity"
 
 class TestRelativePositionStruct < Minitest::Test
   def test_struct_takes_keyword_arguments
@@ -612,6 +613,10 @@ class TestPositioningScopes < Minitest::Test
 
   def test_that_position_columns_will_cope_with_standard_columns
     assert_equal({position: {scope_columns: ["list_id", "enabled"], scope_associations: [:list]}}, Author.positioning_columns)
+  end
+
+  def test_that_position_columns_will_cope_with_polymorphic_belong_to
+    assert_equal({position: {scope_columns: ["includable_id", "includable_type"], scope_associations: [:includable]}}, Entity.positioning_columns)
   end
 
   def test_that_position_columns_must_have_unique_keys

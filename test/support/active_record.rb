@@ -13,6 +13,14 @@ ActiveRecord::Migration.suppress_messages do
       t.string :name
     end
 
+    create_table :entities, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.references :includable, polymorphic: true
+    end
+
+    add_index :entities, [:includable_id, :includable_type, :position], unique: true
+
     create_table :items, force: true do |t|
       t.string :name
       t.integer :position, null: false

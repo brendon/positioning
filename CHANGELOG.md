@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.4.3] - 2024-11-18
+
+- Add support for polymorphic `belongs_to` where we add both the `id` and the `type` to the scope.
+
 ## [0.4.2] - 2024-11-08
 
 NOTE: Versions 0.4.0 and 0.4.1 contain fatal flaws with the locking logic. Upgrade as soon as you can.
