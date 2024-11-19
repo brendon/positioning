@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.4.4] - 2024-11-20
+
+- Add `funding_uri` to gemspec.
+
 ## [0.4.3] - 2024-11-18
 
 - Add support for polymorphic `belongs_to` where we add both the `id` and the `type` to the scope.
