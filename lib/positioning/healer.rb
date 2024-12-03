@@ -8,7 +8,7 @@ module Positioning
 
     def heal
       if scope_columns.present?
-        @model.select(*scope_columns).distinct.each do |scope_record|
+        @model.unscope(:order).reselect(*scope_columns).distinct.each do |scope_record|
           @model.transaction do
             if scope_associations.present?
               scope_associations.each do |scope_association|
@@ -40,7 +40,7 @@ module Positioning
     end
 
     def sequence(scope)
-      scope.reorder(@order).each.with_index(1) do |record, index|
+      scope.unscope(:select).reorder(@order).each.with_index(1) do |record, index|
         record.update_columns @column => index
       end
     end

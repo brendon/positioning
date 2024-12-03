@@ -3,6 +3,7 @@ require "test_helper"
 require_relative "models/list"
 require_relative "models/item"
 require_relative "models/new_item"
+require_relative "models/default_scope_item"
 require_relative "models/composite_primary_key_item"
 require_relative "models/category"
 require_relative "models/categorised_item"
@@ -1759,5 +1760,21 @@ class TestInitialisation < Minitest::Test
     Category.heal_position_column!
 
     assert_equal [1, 2, 3], [third_category.reload, second_category.reload, first_category.reload].map(&:position)
+  end
+
+  def test_heal_position_with_default_scope
+    first_list = List.create name: "First List"
+
+    first_item = first_list.default_scope_items.create name: "First Item"
+    second_item = first_list.default_scope_items.create name: "Second Item"
+    third_item = first_list.default_scope_items.create name: "Third Item"
+
+    first_item.update_columns position: 10
+    second_item.update_columns position: 15
+    third_item.update_columns position: 5
+
+    DefaultScopeItem.heal_position_column!
+
+    assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
   end
 end
