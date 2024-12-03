@@ -1,5 +1,29 @@
 ## [Unreleased]
 
+## [0.4.4] - 2024-11-20
+
+- Add `funding_uri` to gemspec.
+
+## [0.4.3] - 2024-11-18
+
+- Add support for polymorphic `belongs_to` where we add both the `id` and the `type` to the scope.
+
+## [0.4.2] - 2024-11-08
+
+NOTE: Versions 0.4.0 and 0.4.1 contain fatal flaws with the locking logic. Upgrade as soon as you can.
+
+- Fix cases where locking wasn't executed where there were no associated scopes.
+- Fix locking causing the in-memory record to be reloaded from the database. We only need the lock, not the reloaded record.
+
+## [0.4.1] - 2024-11-07
+
+- Fix locking where a `belongs_to` association is `optional: true`.
+
+## [0.4.0] - 2024-11-07
+
+- BREAKING CHANGE: Advisory Lock has been removed. If you explicitly define `advisory_lock: false` in your `positioned` call, you'll need to remove this.
+- CAUTION: The Advisory Lock replacement is row locking. Where `belongs_to` associations exist, we lock the associated record(s), and that limits the locking scope down to the record's current scope, and potentially the scope it belonged to before a change in scope. If there are no `belongs_to` associations then the records that belong to the current (and potentially new) scope are locked, or all the records in the table are locked if there is no scope. Please report any deadlock issues.
+
 ## [0.3.0] - 2024-10-12
 
 - POSSIBLY BREAKING: Clear all position columns on a duplicate created with `dup`.

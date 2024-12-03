@@ -32,6 +32,10 @@ You should also add an index to ensure that the `position` column value is uniqu
 
 The above assumes that your items are scoped to a parent table called `lists`.
 
+If you have a polymorphic `belongs_to` then you'll want to add the type column to the index also:
+
+`add_index :items, [:listable_id, :listable_type, :position], unique: true`
+
 The Positioning gem uses `0` and negative integers to rearrange the lists it manages so don't add database validations to restrict the usage of these. You are also restricted from using `0` and negative integers as position values. If you try, the position value will become `1`. If you try to set an explicit position value that is greater than the next available list position, it will be rounded down to that value.
 
 ### Declaring Positioning
@@ -40,10 +44,10 @@ To declare that your model should keep track of the position of its records you 
 
 ```ruby
 # The scope is global (all records will belong to the same list) and the database column
-# is 'positioned'
+# is 'position'
 positioned
 
-# The scope is on the belongs_to relationship 'list' and the database column is 'positioned'
+# The scope is on the belongs_to relationship 'list' and the database column is 'position'
 # We check if the scope is a belongs_to relationship and use its declared foreign_key as
 # the scope value. In this case it would be 'list_id' since we haven't overridden the
 # default foreign key.
@@ -67,9 +71,9 @@ belongs_to :list
 belongs_to :category
 positioned on: [:list, :category, :enabled]
 
-# If you do not want to use Advisory Lock, you can disable it entirely by passing the 'advisory_lock' flag as false
-belongs_to :list
-positioned on: :list, advisory_lock: false
+# If your belongs_to is polymorphic positioning will automatically add the type to the scope
+belongs_to :listable, polymorphic: true
+positioned on: :listable
 ```
 
 ### Initialising a List
@@ -265,48 +269,11 @@ It's important to note that in the examples above, `other_item` must already bel
 
 ## Concurrency
 
-The queries that this gem runs, especially those that seek the next position integer available are vulnerable to race conditions. To this end, we've introduced an Advisory Lock to ensure that our model callbacks that determine and assign positions run sequentially. In short, an advisory lock prevents more than one process from running a particular block of code at the same time. The lock occurs in the database (or in the case of SQLite, on the filesystem), so as long as all of your processes are using the same database, the lock will prevent multiple positioning callbacks from executing on the same table and positioning column combination at the same time.
+The queries that this gem runs (especially those that seek the next position integer available) are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
 
-If you are using SQLite, you'll want to add the following line to your database.yml file in order to increase the exclusivity of Active Record's default write transactions:
-
-```yaml
-default_transaction_mode: EXCLUSIVE
-```
-
-You may also want to try `IMMEDIATE` as a less aggressive alternative.
-
-You're encouraged to review the Advisory Lock code to ensure it fits with your environment:
-
-https://github.com/brendon/positioning/blob/main/lib/positioning/advisory_lock.rb
+**Please Note SQLite Users:** Row locking isn't supported by SQLite. Since writes are non-concurrent by default, the worst you'll probably see are errors about the database being locked under high load.
 
 If you have any concerns or improvements please file a GitHub issue.
-
-### Opting out of Advisory Lock
-
-There are cases where Advisory Lock may be unwanted or unnecessary, for instance, if you already lock the parent record in **every** operation that will touch the database on the positioned item, **everywhere** in your application.
-
-Example of such scenario in your application:
-
-```ruby
-list = List.create(name: "List")
-
-list.with_lock do
-  item_a = list.items.create(name: "Item A")
-  item_b = list.items.create(name: "Item B")
-  item_c = list.items.create(name: "Item C")
-
-  item_c.update(position: {before: item_a})
-
-  item_a.destroy
-end
-```
-
-Therefore, making sure you already have another mechanism to avoid race conditions, you can opt out of Advisory Lock by setting `advisory_lock` to `false` when declaring positioning:
-
-```ruby
-belongs_to :list
-positioned on: :list, advisory_lock: false
-```
 
 ## Development
 
