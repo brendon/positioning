@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.4.5] - 2024-12-04
+
 - Fix healing a list with a default scope `:order` and/or `:select`. Thanks @LukasSkywalker!
 
 ## [0.4.4] - 2024-11-20
