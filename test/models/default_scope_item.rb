@@ -3,5 +3,5 @@ class DefaultScopeItem < ActiveRecord::Base
 
   positioned on: :list
 
-  default_scope -> { select(:name).order(:position) }
+  default_scope -> { select(:name, :position).order(:position) }
 end
