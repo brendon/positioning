@@ -7,6 +7,7 @@ require_relative "models/default_scope_item"
 require_relative "models/composite_primary_key_item"
 require_relative "models/category"
 require_relative "models/categorised_item"
+require_relative "models/categorised_item_early_positioned"
 require_relative "models/author"
 require_relative "models/author/student"
 require_relative "models/author/teacher"
@@ -614,6 +615,12 @@ class TestPositioningScopes < Minitest::Test
 
   def test_that_position_columns_will_cope_with_standard_columns
     assert_equal({position: {scope_columns: ["list_id", "enabled"], scope_associations: [:list]}}, Author.positioning_columns)
+  end
+
+  # Test fails because positioned is declared early.
+  # This is the expected behaviour to reproduce https://github.com/brendon/positioning/issues/37#issuecomment-2706169468
+  def test_that_position_columns_will_cope_with_early_positioned_columns
+    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}, category_position: {scope_columns: ["list_id", "category_id"], scope_associations: [:list, :category]}}, CategorisedItemWithEarlyPositioned.positioning_columns)
   end
 
   def test_that_position_columns_will_cope_with_polymorphic_belong_to

@@ -76,6 +76,8 @@ belongs_to :listable, polymorphic: true
 positioned on: :listable
 ```
 
+Please note that `positioned` needs be declared after all `belongs_to` relationships have been declared to ensure that the scope columns are correctly identified.
+
 ### Initialising a List
 
 If you are adding `positioning` to a model with existing database records, or you're migrating from another gem like `acts_as_list` or `ranked-model` and have an existing position column, you will need to do some work to ensure you have well formed position values for your records. `positioning` has a helper method per `positioned` declaration that allows you to 'heal' the position column, ensuring that positions are positive integers starting at 1 with no gaps.
