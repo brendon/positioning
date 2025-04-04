@@ -221,7 +221,7 @@ In the form itself, so that your intended position survives a failed `create` at
 
 ```
   <% if item.new_record? %>
-    <%= form.fields :position, model: Positioning::RelativePosition.new(item.position_before_type_cast) do |fields| %>
+    <%= form.fields :position, model: Positioning::RelativePosition.new(**item.position_before_type_cast) do |fields| %>
       <%= fields.hidden_field :before %>
     <% end %>
   <% end %>
