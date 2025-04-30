@@ -1,19 +1,5 @@
 require "test_helper"
 
-require_relative "models/list"
-require_relative "models/item"
-require_relative "models/new_item"
-require_relative "models/default_scope_item"
-require_relative "models/composite_primary_key_item"
-require_relative "models/category"
-require_relative "models/categorised_item"
-require_relative "models/author"
-require_relative "models/author/student"
-require_relative "models/author/teacher"
-require_relative "models/blog"
-require_relative "models/post"
-require_relative "models/entity"
-
 class TestRelativePositionStruct < Minitest::Test
   def test_struct_takes_keyword_arguments
     relative_position = Positioning::RelativePosition.new(before: 1)
@@ -501,10 +487,10 @@ class TestPositioningMechanisms < Minitest::Test
   end
 
   def test_lock_positioning_scope_without_scope_association
-    category = Category.create name: "Category"
-    mechanisms = Positioning::Mechanisms.new(category, :position)
+    product = Product.create name: "Product"
+    mechanisms = Positioning::Mechanisms.new(product, :position)
 
-    ActiveRecord::Relation.any_instance.expects(:lock).once.returns(Category)
+    ActiveRecord::Relation.any_instance.expects(:lock).once.returns(Product)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -605,11 +591,14 @@ class TestPositioningScopes < Minitest::Test
   end
 
   def test_that_position_columns_does_not_need_a_scope
-    assert_equal({position: {scope_columns: [], scope_associations: []}}, Category.positioning_columns)
+    assert_equal({position: {scope_columns: [], scope_associations: []}}, Product.positioning_columns)
   end
 
   def test_that_position_columns_can_have_multiple_entries
-    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}, category_position: {scope_columns: ["list_id", "category_id"], scope_associations: [:list, :category]}}, CategorisedItem.positioning_columns)
+    assert_equal({
+      position: {scope_columns: ["list_id"], scope_associations: [:list]},
+      category_position: {scope_columns: ["list_id", "category_id"], scope_associations: [:list, :category]}
+    }, CategorisedItem.positioning_columns)
   end
 
   def test_that_position_columns_will_cope_with_standard_columns
@@ -1174,12 +1163,12 @@ class TestNoScopePositioning < Minitest::Test
   end
 
   def setup
-    @first_category = Category.create name: "First Category"
-    @second_category = Category.create name: "Second Category"
-    @third_category = Category.create name: "Third Category"
+    @first_product = Product.create name: "First Product"
+    @second_product = Product.create name: "Second Product"
+    @third_product = Product.create name: "Third Product"
 
     @models = [
-      @first_category, @second_category, @third_category
+      @first_product, @second_product, @third_product
     ]
 
     reload_models
@@ -1190,19 +1179,19 @@ class TestNoScopePositioning < Minitest::Test
   end
 
   def test_initial_positioning
-    assert_equal [1, 2, 3], [@first_category, @second_category, @third_category].map(&:position)
+    assert_equal [1, 2, 3], [@first_product, @second_product, @third_product].map(&:position)
   end
 
   def test_absolute_positioning_create
     positions = [1, 2, 3]
 
     4.times do |position|
-      model = Category.create name: "New Category", position: position
+      model = Product.create name: "New Product", position: position
       @models.insert position.clamp(1..3) - 1, model
       positions.push positions.length + 1
 
       reload_models
-      assert_equal Category.all, @models
+      assert_equal Product.all, @models
       assert_equal positions, @models.map(&:position)
     end
   end
@@ -1211,8 +1200,8 @@ class TestNoScopePositioning < Minitest::Test
     positions = [1, 2, 3]
 
     [:before, :after].each do |relative_position|
-      [@first_category, @second_category, @third_category, nil].each do |relative_model|
-        model = Category.create name: "New Category", position: {"#{relative_position}": relative_model}
+      [@first_product, @second_product, @third_product, nil].each do |relative_model|
+        model = Product.create name: "New Product", position: {"#{relative_position}": relative_model}
 
         if !relative_model
           if relative_position == :before
@@ -1231,13 +1220,13 @@ class TestNoScopePositioning < Minitest::Test
         positions.push positions.length + 1
 
         reload_models
-        assert_equal Category.all, @models
+        assert_equal Product.all, @models
         assert_equal positions, @models.map(&:position)
       end
     end
 
     [:first, :last, nil].each do |relative_position|
-      model = Category.create name: "New Category", position: relative_position
+      model = Product.create name: "New Product", position: relative_position
 
       case relative_position
       when :first
@@ -1249,20 +1238,20 @@ class TestNoScopePositioning < Minitest::Test
       positions.push positions.length + 1
 
       reload_models
-      assert_equal Category.all, @models
+      assert_equal Product.all, @models
       assert_equal positions, @models.map(&:position)
     end
   end
 
   def test_absolute_positioning_update
     4.times do |position|
-      [@first_category, @second_category, @third_category].each do |model|
+      [@first_product, @second_product, @third_product].each do |model|
         model.update position: position
         @models.delete_at @models.index(model)
         @models.insert position.clamp(1..3) - 1, model
 
         reload_models
-        assert_equal Category.all, @models
+        assert_equal Product.all, @models
         assert_equal [1, 2, 3], @models.map(&:position)
       end
     end
@@ -1270,8 +1259,8 @@ class TestNoScopePositioning < Minitest::Test
 
   def test_relative_positioning_update
     [:before, :after].each do |relative_position|
-      [@first_category, @second_category, @third_category].each do |model|
-        [@first_category, @second_category, @third_category, nil].each do |relative_model|
+      [@first_product, @second_product, @third_product].each do |model|
+        [@first_product, @second_product, @third_product, nil].each do |relative_model|
           model.update position: {"#{relative_position}": relative_model}
 
           if !relative_model
@@ -1293,14 +1282,14 @@ class TestNoScopePositioning < Minitest::Test
           end
 
           reload_models
-          assert_equal Category.all, @models
+          assert_equal Product.all, @models
           assert_equal [1, 2, 3], @models.map(&:position)
         end
       end
     end
 
     [:first, :last, nil].each do |relative_position|
-      [@first_category, @second_category, @third_category].each do |model|
+      [@first_product, @second_product, @third_product].each do |model|
         model.update position: relative_position
 
         @models.delete_at @models.index(model)
@@ -1313,7 +1302,7 @@ class TestNoScopePositioning < Minitest::Test
         end
 
         reload_models
-        assert_equal Category.all, @models
+        assert_equal Product.all, @models
         assert_equal [1, 2, 3], @models.map(&:position)
       end
     end
@@ -1322,7 +1311,7 @@ class TestNoScopePositioning < Minitest::Test
   def test_destruction
     positions = [1, 2, 3]
 
-    [@second_category, @first_category, @third_category].each do |model|
+    [@second_product, @first_product, @third_product].each do |model|
       index = @models.index(model)
       model.destroy
 
@@ -1330,7 +1319,7 @@ class TestNoScopePositioning < Minitest::Test
       positions.pop
 
       reload_models
-      assert_equal Category.all, @models
+      assert_equal Product.all, @models
       assert_equal positions, @models.map(&:position)
     end
   end
@@ -1699,82 +1688,5 @@ class TestSTIPositioning < Minitest::Test
         assert_equal positions, models.map(&:position)
       end
     end
-  end
-end
-
-class TestInitialisation < Minitest::Test
-  include Minitest::Hooks
-
-  def around
-    ActiveRecord::Base.transaction do
-      super
-      raise ActiveRecord::Rollback
-    end
-  end
-
-  def test_heal_position
-    first_list = List.create name: "First List"
-    second_list = List.create name: "Second List"
-
-    first_item = first_list.new_items.create name: "First Item"
-    second_item = first_list.new_items.create name: "Second Item"
-    third_item = first_list.new_items.create name: "Third Item"
-
-    fourth_item = second_list.new_items.create name: "Fourth Item"
-    fifth_item = second_list.new_items.create name: "Fifth Item"
-    sixth_item = second_list.new_items.create name: "Sixth Item"
-
-    first_item.update_columns position: 9
-    second_item.update_columns position: nil
-    third_item.update_columns position: -42
-
-    fourth_item.update_columns position: 0
-    fifth_item.update_columns position: 998
-    sixth_item.update_columns position: 800
-
-    NewItem.heal_position_column!
-
-    if ENV["DB"] == "postgresql"
-      assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
-    else
-      assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:position)
-    end
-
-    assert_equal [1, 2, 3], [fourth_item.reload, sixth_item.reload, fifth_item.reload].map(&:position)
-
-    NewItem.heal_position_column! name: :desc
-
-    assert_equal [1, 2, 3], [third_item.reload, second_item.reload, first_item.reload].map(&:position)
-    assert_equal [1, 2, 3], [sixth_item.reload, fourth_item.reload, fifth_item.reload].map(&:position)
-  end
-
-  def test_heal_position_with_no_scope
-    first_category = Category.create name: "First Category"
-    second_category = Category.create name: "Second Category"
-    third_category = Category.create name: "Third Category"
-
-    first_category.update_columns position: 9
-    second_category.update_columns position: 0
-    third_category.update_columns position: -42
-
-    Category.heal_position_column!
-
-    assert_equal [1, 2, 3], [third_category.reload, second_category.reload, first_category.reload].map(&:position)
-  end
-
-  def test_heal_position_with_default_scope
-    first_list = List.create name: "First List"
-
-    first_item = first_list.default_scope_items.create name: "First Item"
-    second_item = first_list.default_scope_items.create name: "Second Item"
-    third_item = first_list.default_scope_items.create name: "Third Item"
-
-    first_item.update_columns position: 10
-    second_item.update_columns position: 15
-    third_item.update_columns position: 5
-
-    DefaultScopeItem.heal_position_column!
-
-    assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
   end
 end

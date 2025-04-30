@@ -1,7 +1,5 @@
 class Category < ActiveRecord::Base
-  has_many :categorised_items, dependent: :destroy
+  belongs_to :parent, class_name: "Category", optional: true
 
-  positioned
-
-  default_scope { order(:position) }
+  positioned on: :parent
 end
