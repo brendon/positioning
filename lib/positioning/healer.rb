@@ -12,7 +12,7 @@ module Positioning
           @model.transaction do
             if scope_associations.present?
               scope_associations.each do |scope_association|
-                scope_record.send(scope_association).lock!
+                scope_record.send(scope_association)&.lock!
               end
             else
               @model.where(scope_record.slice(*scope_columns)).lock!

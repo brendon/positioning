@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix healing for positioning with nullable scope (parent in trees, for example). Thanks @pyromaniac!
+
 ## [0.4.5] - 2024-12-04
 
 - Fix healing a list with a default scope `:order` and/or `:select`. Thanks @LukasSkywalker!

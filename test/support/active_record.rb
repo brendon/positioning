@@ -1,3 +1,4 @@
+require "logger"
 require "active_record"
 
 ENV["DB"] = "mysql" unless ENV["DB"]
@@ -57,9 +58,17 @@ ActiveRecord::Migration.suppress_messages do
     create_table :categories, force: true do |t|
       t.string :name
       t.integer :position, null: false
+      t.references :parent
     end
 
-    add_index :categories, :position, unique: true
+    add_index :categories, [:parent_id, :position], unique: true
+
+    create_table :products, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+    end
+
+    add_index :products, :position, unique: true
 
     create_table :categorised_items, force: true do |t|
       t.string :name
