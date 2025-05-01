@@ -1,3 +1,4 @@
+require "logger"
 require "active_record"
 
 ENV["DB"] = "mysql" unless ENV["DB"]
