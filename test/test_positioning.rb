@@ -595,10 +595,7 @@ class TestPositioningScopes < Minitest::Test
   end
 
   def test_that_position_columns_can_have_multiple_entries
-    assert_equal({
-      position: {scope_columns: ["list_id"], scope_associations: [:list]},
-      category_position: {scope_columns: ["list_id", "category_id"], scope_associations: [:list, :category]}
-    }, CategorisedItem.positioning_columns)
+    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}, category_position: {scope_columns: ["list_id", "category_id"], scope_associations: [:list, :category]}}, CategorisedItem.positioning_columns)
   end
 
   def test_that_position_columns_will_cope_with_standard_columns
