@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.4.6] - 2025-05-01
+
 - Fix healing for positioning with nullable scope (parent in trees, for example). Thanks @pyromaniac!
 
 ## [0.4.5] - 2024-12-04
