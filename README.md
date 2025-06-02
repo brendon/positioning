@@ -267,6 +267,15 @@ item.update list: other_list, position: {after: 11}
 
 It's important to note that in the examples above, `other_item` must already belong to the `other_list` scope.
 
+##### Single Table Inheritance and Abstract Models
+Positioning requires a concrete table to work with and considers all records within that table as being in some scope. Therefore, it currently isn't possible to use `positioned` on abstract subclasses or when using STI. All calls to `position` must be on the base class.
+
+If you must position child models separately, scope their position by the `type` column.
+
+```rb
+positioned on: [:type]
+``` 
+
 ## Concurrency
 
 The queries that this gem runs (especially those that seek the next position integer available) are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
