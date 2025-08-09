@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix `solidify_position` so that it properly raises an error for an invalid string position.
+
 ## [0.4.6] - 2025-05-01
 
 - Fix healing for positioning with nullable scope (parent in trees, for example). Thanks @pyromaniac!

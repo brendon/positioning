@@ -162,9 +162,7 @@ module Positioning
         solidified_position -= 1 if in_positioning_scope? && position_was < solidified_position
 
         self.position = solidified_position
-      end
-
-      unless position.is_a? Integer
+      else
         raise Error.new,
           %(`#{@column}` must be an Integer, :first, :last, ) +
             %{before: (#{base_class.name}, #{primary_key}, nil, or ""), } +
