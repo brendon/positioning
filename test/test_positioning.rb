@@ -120,6 +120,75 @@ class TestPositioningMechanisms < Minitest::Test
     end
   end
 
+  def test_channels_positioning_scoped_by_blog_and_active
+    blog = Blog.create name: "Blog"
+    # Active channels
+    channels = [
+      blog.channels.create(name: "A1"),
+      blog.channels.create(name: "A2"),
+      blog.channels.create(name: "A3")
+    ]
+
+    assert_equal [1, 2, 3], channels.map(&:position)
+    assert_equal [1, 2, 3], blog.channels.pluck(:position)
+
+    # Inactive channels (not visible via default_scope)
+    Channel.create name: "I1", blog: blog, active: false
+    Channel.create name: "I2", blog: blog, active: false
+
+    assert_equal [1, 2], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:position)
+    assert_equal ["A1", "A2", "A3"], blog.channels.order(:position).pluck(:name)
+  end
+
+  def test_channels_move_within_active_scope
+    blog = Blog.create name: "Blog"
+    blog.channels.create name: "A1"
+    ch2 = blog.channels.create name: "A2"
+    blog.channels.create name: "A3"
+
+    ch2.update(position: 1)
+    assert_equal ["A2", "A1", "A3"], blog.channels.order(:position).pluck(:name)
+  end
+
+  def test_channels_toggle_active_true_to_false_moves_across_scopes
+    blog = Blog.create name: "Blog"
+    blog.channels.create name: "A1"
+    a2 = blog.channels.create name: "A2"
+    blog.channels.create name: "A3"
+
+    # Move A2 to inactive, at end of inactive scope
+    a2.update(active: false, position: :last)
+
+    assert_equal ["A1", "A3"], blog.channels.order(:position).pluck(:name)
+    assert_equal [1, 2], blog.channels.order(:position).pluck(:position)
+    assert_equal ["A2"], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:name)
+    assert_equal [1], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:position)
+  end
+
+  def test_channels_toggle_active_false_to_true_moves_across_scopes
+    blog = Blog.create name: "Blog"
+    Channel.create name: "I1", blog: blog, active: false
+    i2 = Channel.create name: "I2", blog: blog, active: false
+
+    i2.update(active: true, position: :last)
+
+    assert_equal ["I2"], blog.channels.order(:position).pluck(:name)
+    assert_equal [1], blog.channels.order(:position).pluck(:position)
+    assert_equal ["I1"], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:name)
+    assert_equal [1], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:position)
+  end
+
+  def test_channels_destroy_contracts_within_each_scope
+    blog = Blog.create name: "Blog"
+    Channel.create name: "I1", blog: blog, active: false
+    i2 = Channel.create name: "I2", blog: blog, active: false
+    Channel.create name: "I3", blog: blog, active: false
+
+    i2.destroy
+
+    assert_equal [1, 2], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:position)
+  end
+
   def test_active_record_is_not_polluted
     refute Item.const_defined?(:Mechanisms)
   end

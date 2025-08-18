@@ -77,7 +77,7 @@ module Positioning
     end
 
     def record_scope
-      base_class.where primary_key => [@positioned.id]
+      base_class.unscoped.where primary_key => [@positioned.id]
     end
 
     def position
@@ -183,7 +183,7 @@ module Positioning
     end
 
     def positioning_scope
-      base_class.where @positioned.slice(*scope_columns)
+      base_class.unscoped.where @positioned.slice(*scope_columns)
     end
 
     def lock_positioning_scope!
@@ -207,7 +207,7 @@ module Positioning
     end
 
     def positioning_scope_was
-      base_class.where record_scope.first.slice(*scope_columns)
+      base_class.unscoped.where record_scope.first.slice(*scope_columns)
     end
 
     def in_positioning_scope?

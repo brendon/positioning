@@ -96,4 +96,34 @@ class TestHealing < Minitest::Test
 
     assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
   end
+
+  def test_heal_position_with_channels_default_scope_and_dual_scope
+    blog = Blog.create name: "Blog"
+
+    # Create active channels
+    a1 = blog.channels.create name: "A1"
+    a2 = blog.channels.create name: "A2"
+    a3 = blog.channels.create name: "A3"
+
+    # Create inactive channels
+    i1 = Channel.create name: "I1", blog: blog, active: false
+    i2 = Channel.create name: "I2", blog: blog, active: false
+
+    # Mess up positions in both scopes
+    a1.update_columns position: 10
+    a2.update_columns position: 15
+    a3.update_columns position: 5
+    i1.update_columns position: 20
+    i2.update_columns position: 25
+
+    Channel.heal_position_column!
+
+    # Active scope should be re-sequenced
+    assert_equal [1, 2, 3], [a3.reload, a1.reload, a2.reload].map(&:position)
+    assert_equal ["A3", "A1", "A2"], blog.channels.order(:position).pluck(:name)
+
+    # Inactive scope should be re-sequenced
+    assert_equal [1, 2], [i1.reload, i2.reload].map(&:position)
+    assert_equal [1, 2], Channel.unscoped.where(blog: blog, active: false).order(:position).pluck(:position)
+  end
 end

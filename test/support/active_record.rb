@@ -108,6 +108,15 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :posts, [:blog_id, :position], unique: true
     add_index :posts, :order, unique: true
+
+    create_table :channels, force: true do |t|
+      t.string :name
+      t.boolean :active, null: false, default: true
+      t.integer :position, null: false
+      t.references :blog, null: false
+    end
+
+    add_index :channels, [:blog_id, :active, :position], unique: true
   end
 end
 
