@@ -8,23 +8,23 @@ module Positioning
 
     def heal
       if scope_columns.present?
-        @model.unscope(:order).reselect(*scope_columns).distinct.each do |scope_record|
+        @model.unscoped.reselect(*scope_columns).distinct.each do |scope_record|
           @model.transaction do
             if scope_associations.present?
               scope_associations.each do |scope_association|
                 scope_record.send(scope_association)&.lock!
               end
             else
-              @model.where(scope_record.slice(*scope_columns)).lock!
+              @model.unscoped.where(scope_record.slice(*scope_columns)).lock!
             end
 
-            sequence @model.where(scope_record.slice(*scope_columns))
+            sequence @model.unscoped.where(scope_record.slice(*scope_columns))
           end
         end
       else
         @model.transaction do
           @model.all.lock!
-          sequence @model
+          sequence @model.unscoped
         end
       end
     end
@@ -40,7 +40,7 @@ module Positioning
     end
 
     def sequence(scope)
-      scope.unscope(:select).reorder(@order).each.with_index(1) do |record, index|
+      scope.reorder(@order).each.with_index(1) do |record, index|
         record.update_columns @column => index
       end
     end
