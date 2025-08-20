@@ -106,13 +106,19 @@ module Positioning
     end
 
     def expand(scope, range)
-      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      ids = scope.pluck(:id)
+      return if ids.empty?
+
+      scope.where(id: ids).where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
+      scope.where(id: ids).where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
     end
 
     def contract(scope, range)
-      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      ids = scope.pluck(:id)
+      return if ids.empty?
+
+      scope.where(id: ids).where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
+      scope.where(id: ids).where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
     end
 
     def solidify_position
