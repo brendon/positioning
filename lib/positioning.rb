@@ -56,7 +56,11 @@ module Positioning
           before_destroy { Mechanisms.new(self, column).destroy_position }
 
           define_singleton_method(:"heal_#{column}_column!") do |order = column|
-            Healer.new(self, column, order).heal
+            Healer.new(self, column).heal(order)
+          end
+
+          define_singleton_method(:"update_#{column}_in_order_of!") do |ids|
+            Healer.new(self, column).reposition(ids)
           end
         end
       end

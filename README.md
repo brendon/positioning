@@ -36,6 +36,13 @@ If you have a polymorphic `belongs_to` then you'll want to add the type column t
 
 `add_index :items, [:listable_id, :listable_type, :position], unique: true`
 
+If you are using Rails 7.1+ you can use `add_unique_key` instead and defer the constraint like so:
+
+```ruby
+add_unique_key :items, [:list_id, :position], deferrable: :deferred
+add_unique_key :items, [:listable_id, :listable_type, :position], deferrable: :deferred
+```
+
 The Positioning gem uses `0` and negative integers to rearrange the lists it manages so don't add database validations to restrict the usage of these. You are also restricted from using `0` and negative integers as position values. If you try, the position value will become `1`. If you try to set an explicit position value that is greater than the next available list position, it will be rounded down to that value.
 
 ### Declaring Positioning
@@ -187,6 +194,28 @@ item.update position: {after: other_item}
 # or
 other_item.id # => 11
 item.update position: {after: 11}
+```
+
+#### Repositioning in Bulk
+
+If you need to reorder a list in one go, you can use the bulk reposition helper that is added for each positioned column. The method name is based on the column, so the default is `update_position_in_order_of!`.
+
+You can pass an array of ids in the desired order:
+
+```ruby
+Item.update_position_in_order_of!([3, 2, 1])
+```
+
+Or a hash of ids to weights, where lower weights come first (ties preserve hash order):
+
+```ruby
+Item.update_position_in_order_of!({ 3 => 0, 2 => 1, 1 => 2 })
+```
+
+If you have multiple positioned columns, the method name changes accordingly:
+
+```ruby
+CategorisedItem.update_category_position_in_order_of!([3, 2, 1])
 ```
 
 ##### Duplicating (`dup`)
