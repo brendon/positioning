@@ -76,6 +76,47 @@ belongs_to :listable, polymorphic: true
 positioned on: :listable
 ```
 
+### Discard (soft delete)
+
+If you use the discard gem, discard uses `update_columns`, so `before_update` callbacks do not run. You can use the example initialize below to ensure positions are updated after discard/undiscard. Make sure you include the discarded_at column you're using in the positioning scope, eg. `positioned on: [:list, :discarded_at]`
+
+```ruby
+# config/initializers/discard_positioning.rb
+
+module DiscardPositioning
+  def discard
+    return false if discarded?
+    _update_position_and_toggle_discard(:discard, Time.current)
+  end
+
+  def undiscard
+    return false unless discarded?
+    _update_position_and_toggle_discard(:undiscard, nil)
+  end
+
+  private
+
+  def _update_position_and_toggle_discard(callback, discarded_at)
+    discard_column = self.class.discard_column
+    run_callbacks(callback) do
+      self.class.transaction do
+        self.send(:"#{discard_column}=", discarded_at)
+
+        positioning_changes = self.class.base_class.positioning_columns.collect do |column, options|
+          next unless options[:scope_columns].include? discard_column.to_s
+          Positioning::Mechanisms.new(self, column).update_position
+          [column, send(column)] if attribute_changed?(column)
+        end.compact.to_h
+
+        update_columns(**positioning_changes, discard_column => discarded_at)
+      end
+    end
+  end
+end
+
+Discard::Model.include(DiscardPositioning)
+```
+
 ### Initialising a List
 
 If you are adding `positioning` to a model with existing database records, or you're migrating from another gem like `acts_as_list` or `ranked-model` and have an existing position column, you will need to do some work to ensure you have well formed position values for your records. `positioning` has a helper method per `positioned` declaration that allows you to 'heal' the position column, ensuring that positions are positive integers starting at 1 with no gaps.
