@@ -70,12 +70,6 @@ module Positioning
       base_class.primary_key
     end
 
-    def quoted_column
-      with_connection do |connection|
-        connection.quote_table_name_for_assignment base_class.table_name, @column
-      end
-    end
-
     def record_scope
       base_class.where primary_key => [@positioned.id]
     end
@@ -102,17 +96,90 @@ module Positioning
 
     def move_out_of_the_way
       position_was # Memoize the original position before changing it
-      record_scope.update_all @column => 0
+      update_scope(record_scope, {@column => 0})
     end
 
     def expand(scope, range)
-      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      update_scope(scope.where(@column => range), {@column => negate_position})
+      update_scope(scope.where(@column => ..-1), {@column => negate_position_with_offset(1)})
     end
 
     def contract(scope, range)
-      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      update_scope(scope.where(@column => range), {@column => negate_position})
+      update_scope(scope.where(@column => ..-1), {@column => negate_position_with_offset(-1)})
+    end
+
+    def update_scope(scope, updates)
+      updates = updates.dup
+      updates.merge!(timestamp_updates)
+      return if updates.empty?
+
+      arel = scope.arel
+      manager = Arel::UpdateManager.new(base_class.arel_table)
+      manager.set(build_assignments(updates))
+      arel_constraints(arel).each { |constraint| manager.where(constraint) }
+
+      with_connection do |connection|
+        connection.update(manager, "Positioning update")
+      end
+    end
+
+    def arel_constraints(arel)
+      return arel.constraints if arel.respond_to?(:constraints)
+
+      arel.ast.wheres
+    end
+
+    def build_assignments(updates)
+      updates.map do |column, value|
+        attribute = base_class.arel_table[column]
+        unless value.is_a?(Arel::Nodes::Node) || value.is_a?(Arel::Attributes::Attribute)
+          value = Arel::Nodes.build_quoted(value, attribute)
+        end
+        [attribute, value]
+      end
+    end
+
+    def position_attribute
+      base_class.arel_table[@column]
+    end
+
+    def negate_position
+      Arel::Nodes::Multiplication.new(position_attribute, Arel::Nodes.build_quoted(-1, position_attribute))
+    end
+
+    def negate_position_with_offset(offset)
+      base = negate_position
+      return base if offset.zero?
+
+      adjustment = Arel::Nodes.build_quoted(offset.abs, position_attribute)
+      offset.positive? ? Arel::Nodes::Addition.new(base, adjustment) : Arel::Nodes::Subtraction.new(base, adjustment)
+    end
+
+    def timestamp_updates
+      columns = timestamp_columns
+      return {} if columns.empty?
+
+      time = current_time
+      columns.each_with_object({}) { |column, updates| updates[column] = time }
+    end
+
+    def timestamp_columns
+      return [] unless base_class.record_timestamps
+
+      if base_class.respond_to?(:timestamp_attributes_for_update_in_model, true)
+        base_class.send(:timestamp_attributes_for_update_in_model)
+      else
+        base_class.send(:timestamp_attributes_for_update)
+      end
+    end
+
+    def current_time
+      if base_class.respond_to?(:current_time_from_proper_timezone, true)
+        base_class.send(:current_time_from_proper_timezone)
+      else
+        Time.now
+      end
     end
 
     def solidify_position

@@ -30,6 +30,24 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :items, [:list_id, :position], unique: true
 
+    create_table :optimistic_locking_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.integer :lock_version, null: false, default: 0
+      t.references :list, null: false
+    end
+
+    add_index :optimistic_locking_items, [:list_id, :position], unique: true
+
+    create_table :timestamps_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.references :list, null: false
+      t.timestamps null: false
+    end
+
+    add_index :timestamps_items, [:list_id, :position], unique: true
+
     create_table :new_items, force: true do |t|
       t.string :name
       t.integer :position

@@ -8,6 +8,8 @@ require "mocha/minitest"
 
 require_relative "models/list"
 require_relative "models/item"
+require_relative "models/optimistic_locking_item"
+require_relative "models/timestamps_item"
 require_relative "models/new_item"
 require_relative "models/default_scope_item"
 require_relative "models/composite_primary_key_item"
