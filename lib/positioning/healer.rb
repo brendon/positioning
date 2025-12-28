@@ -7,7 +7,14 @@ module Positioning
 
     def heal(order)
       each_scope do |scope|
-        sequence scope.reorder(order)
+
+        # Move whole scope out of the way
+        last_position = (scope.maximum(@column) || 0) + 1
+        scope.update_all(@column => @model.arel_table[@column] - last_position)
+
+        scope.order(order).each.with_index(1) do |record, index|
+          record.update_column @column, index
+        end
       end
     end
 
@@ -25,10 +32,17 @@ module Positioning
       return if ids.empty?
 
       each_scope(@model.primary_key => ids) do |scope|
-        sequence [
-          *scope.where(@model.primary_key => ids).unscope(:order).find(ids & scope.ids),
-          *scope.where.not(@model.primary_key => ids).reorder(@column)
-        ]
+        scoped_records = scope.where(@model.primary_key => ids)
+        scoped_ids = ids & scoped_records.ids
+        positions = scoped_records.pluck(@column).sort
+
+        # Move only selected scope out of the way
+        last_position = (positions.max || 0) + 1
+        scoped_records.update_all(@column => @model.arel_table[@column] - last_position)
+
+        scoped_records.find(scoped_ids).zip(positions).each do |record, position|
+          record.update_column @column, position
+        end
       end
     end
 
@@ -39,18 +53,13 @@ module Positioning
         @model.where(conditions).unscope(:order).reselect(*scope_columns).distinct.each do |scope_record|
           @model.transaction do
             lock_scope(scope_record)
-            scope = @model.where(scope_record.slice(*scope_columns))
-            last_position = (scope.maximum(@column) || 0) + 1
-            scope.update_all(@column => @model.arel_table[@column] - last_position)
-            yield @model.where(scope_record.slice(*scope_columns)).unscope(:select)
+            yield @model.where(scope_record.slice(*scope_columns)).unscope(:order, :select)
           end
         end
       else
         @model.transaction do
           @model.all.lock!
-          last_position = (@model.maximum(@column) || 0) + 1
-          @model.update_all(@column => @model.arel_table[@column] - last_position)
-          yield @model.unscope(:select)
+          yield @model.unscope(:order, :select)
         end
       end
     end
@@ -71,12 +80,6 @@ module Positioning
 
     def scope_associations
       @model.positioning_columns[@column][:scope_associations]
-    end
-
-    def sequence(records)
-      records.each.with_index(1) do |record, index|
-        record.update_columns @column => index
-      end
     end
   end
 end

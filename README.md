@@ -212,6 +212,14 @@ Or a hash of ids to weights, where lower weights come first (ties preserve hash 
 Item.update_position_in_order_of!({ 3 => 0, 2 => 1, 1 => 2 })
 ```
 
+If you pass a partial list, only those records move and they reuse the positions already held by the selected records. Unselected records keep their positions:
+
+```ruby
+# positions: A:1, B:2, C:3, D:4, E:5
+Item.update_position_in_order_of!([4, 2])
+# positions: A:1, D:2, C:3, B:4, E:5
+```
+
 If you have multiple positioned columns, the method name changes accordingly:
 
 ```ruby

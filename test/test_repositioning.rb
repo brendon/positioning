@@ -35,6 +35,23 @@ class TestRepositioning < Minitest::Test
     assert_equal [1, 2, 3], [sixth_item.reload, fifth_item.reload, fourth_item.reload].map(&:position)
   end
 
+  def test_reposition_position_with_partial_selection
+    list = List.create name: "Partial List"
+
+    first_item = list.new_items.create name: "First Item"
+    second_item = list.new_items.create name: "Second Item"
+    third_item = list.new_items.create name: "Third Item"
+    fourth_item = list.new_items.create name: "Fourth Item"
+    fifth_item = list.new_items.create name: "Fifth Item"
+
+    NewItem.update_position_in_order_of!([
+      fourth_item.id,
+      second_item.id
+    ])
+
+    assert_equal [1, 2, 3, 4, 5], [first_item.reload, fourth_item.reload, third_item.reload, second_item.reload, fifth_item.reload].map(&:position)
+  end
+
   def test_reposition_position_with_weights
     first_product = Product.create name: "First Product"
     second_product = Product.create name: "Second Product"
