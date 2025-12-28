@@ -27,7 +27,7 @@ module Positioning
       each_scope(@model.primary_key => ids) do |scope|
         sequence [
           *scope.where(@model.primary_key => ids).unscope(:order).find(ids & scope.ids),
-          *scope.where.not(@model.primary_key => ids).order(@column)
+          *scope.where.not(@model.primary_key => ids).reorder(@column)
         ]
       end
     end
