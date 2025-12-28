@@ -114,10 +114,10 @@ module Positioning
       updates.merge!(timestamp_updates)
       return if updates.empty?
 
-      arel = scope.arel
-      manager = Arel::UpdateManager.new(base_class.arel_table)
+      manager = Arel::UpdateManager.new
+      manager.table(base_class.arel_table)
       manager.set(build_assignments(updates))
-      arel_constraints(arel).each { |constraint| manager.where(constraint) }
+      arel_constraints(scope.arel).each { |constraint| manager.where(constraint) }
 
       with_connection do |connection|
         connection.update(manager, "Positioning update")
