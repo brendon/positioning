@@ -7,7 +7,6 @@ module Positioning
 
     def heal(order)
       each_scope do |scope|
-
         # Move whole scope out of the way
         last_position = (scope.maximum(@column) || 0) + 1
         scope.update_all(@column => @model.arel_table[@column] - last_position)
@@ -21,13 +20,13 @@ module Positioning
     def reposition(values)
       pk_type = @model.type_for_attribute(@model.primary_key)
       ids = if values.is_a?(Hash)
-              pairs = values.to_a.reject { |id, weight| id.nil? || weight.nil? }
-              pairs = pairs.each_with_index.map { |(id, weight), index| [id, weight, index] }
-              pairs.sort_by! { |(_, weight, index)| [weight, index] }
-              pairs.map { |id, _weight, _index| id }
-            else
-              Array.wrap(values)
-            end.map { |id| pk_type.cast(id) }.compact_blank.uniq
+        pairs = values.to_a.reject { |id, weight| id.nil? || weight.nil? }
+        pairs = pairs.each_with_index.map { |(id, weight), index| [id, weight, index] }
+        pairs.sort_by! { |(_, weight, index)| [weight, index] }
+        pairs.map { |id, _weight, _index| id }
+      else
+        Array.wrap(values)
+      end.map { |id| pk_type.cast(id) }.compact_blank.uniq
 
       return if ids.empty?
 
