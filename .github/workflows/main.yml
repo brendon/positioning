@@ -27,6 +27,9 @@ jobs:
           - mysql
           - postgresql
           - sqlite
+        exclude:
+          - rails: '7.2'
+            ruby: '4.0'
     env:
       DB: ${{ matrix.db }}
       RAILS_VERSION: ${{ matrix.rails }}
