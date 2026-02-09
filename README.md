@@ -1,6 +1,6 @@
 # Positioning
 
-[![Tests](https://github.com/brendon/positioning/actions/workflows/main.yml/badge.svg)](https://github.com/brendon/positioning/actions/workflows/main.yml)
+[![Ruby](https://github.com/brendon/positioning/actions/workflows/main.yml/badge.svg)](https://github.com/brendon/positioning/actions/workflows/main.yml)
 
 The aim of this gem is to allow you to easily position Active Record model instances within a scope of your choosing. In an ideal world this gem will give your model instances sequential integer positions beginning with `1`. Attempts are made to make all changes within a transaction so that position integers remain consistent. To this end, directly assigning a position is discouraged, instead you can move items by declaring an item's prior or subsequent item in the list and your item will be moved to be relative to that item.
 
