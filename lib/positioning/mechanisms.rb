@@ -77,7 +77,12 @@ module Positioning
     end
 
     def record_scope
-      base_class.where primary_key => [@positioned.id]
+      scope = base_class.where primary_key => [@positioned.id]
+      record_scope_option == :unscoped ? scope.unscoped.where(primary_key => [@positioned.id]) : scope
+    end
+
+    def record_scope_option
+      base_class.positioning_columns[@column][:record_scope]
     end
 
     def position

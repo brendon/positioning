@@ -18,7 +18,7 @@ module Positioning
         @positioning_columns ||= {}
       end
 
-      def positioned(on: [], column: :position)
+      def positioned(on: [], column: :position, record_scope: nil)
         unless base_class?
           raise Error.new "can't be called on an abstract class or STI subclass."
         end
@@ -28,7 +28,7 @@ module Positioning
         if positioning_columns.key? column
           raise Error.new "The column `#{column}` has already been used by the scope `#{positioning_columns[column]}`."
         else
-          positioning_columns[column] = {scope_columns: [], scope_associations: []}
+          positioning_columns[column] = {scope_columns: [], scope_associations: [], record_scope: record_scope}
 
           Array.wrap(on).each do |scope_component|
             scope_component = scope_component.to_s

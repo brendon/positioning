@@ -1322,6 +1322,141 @@ class TestNoScopePositioning < Minitest::Test
   end
 end
 
+class TestSoftDeletePositioning < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def setup
+    @list = List.create name: "List"
+    @first_item = @list.paranoid_items.create name: "First Item"
+    @second_item = @list.paranoid_items.create name: "Second Item"
+    @third_item = @list.paranoid_items.create name: "Third Item"
+
+    @models = [@first_item, @second_item, @third_item]
+    reload_models
+  end
+
+  def reload_models
+    @models.map(&:reload)
+  end
+
+  def test_initial_positioning
+    assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
+  end
+
+  def test_soft_delete_does_not_affect_visible_positions
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # The soft-deleted record should no longer appear in the default scope
+    assert_equal 2, @list.paranoid_items.count
+    assert_equal [@first_item, @third_item], @list.paranoid_items.order(:position).to_a
+
+    # Note: positions are not automatically resequenced on soft delete since
+    # the record still exists in the database
+    @first_item.reload
+    @third_item.reload
+    assert_equal [1, 3], [@first_item, @third_item].map(&:position)
+  end
+
+  def test_record_scope_unscoped_stores_option
+    config = ParanoidItem.positioning_columns[:position]
+    assert_equal :unscoped, config[:record_scope]
+  end
+
+  def test_recover_soft_deleted_record_to_end_of_list
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Recover the soft-deleted record (this would fail without record_scope: :unscoped)
+    # because the default scope excludes deleted records
+    deleted_item = ParanoidItem.unscoped.find(@second_item.id)
+    deleted_item.recover
+
+    # The recovered item should be at the end of the list
+    reload_models
+    assert_equal [1, 3, 4], [@first_item, @third_item, @second_item].map(&:position)
+    assert_nil @second_item.deleted_at
+  end
+
+  def test_recover_soft_deleted_record_to_specific_position
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Recover to a specific position
+    deleted_item = ParanoidItem.unscoped.find(@second_item.id)
+    deleted_item.deleted_at = nil
+    deleted_item.position = 1
+    deleted_item.save!
+
+    reload_models
+    assert_equal [1, 2, 4], [@second_item, @first_item, @third_item].map(&:position)
+  end
+
+  def test_position_was_works_for_soft_deleted_record
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Access the soft-deleted record
+    deleted_item = ParanoidItem.unscoped.find(@second_item.id)
+
+    # Simulate what happens during an update - the mechanisms should be able
+    # to find the current position even though the record is soft-deleted
+    mechanisms = Positioning::Mechanisms.new(deleted_item, :position)
+    assert_equal 2, mechanisms.send(:position_was)
+  end
+
+  def test_update_position_of_soft_deleted_record
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Access and update the soft-deleted record's position
+    deleted_item = ParanoidItem.unscoped.find(@second_item.id)
+    deleted_item.update_column(:position, 0) # Move out of the way manually for test
+
+    # Recover with a new position
+    deleted_item.deleted_at = nil
+    deleted_item.position = :first
+    deleted_item.save!
+
+    reload_models
+    # After recovery to first position, the order should be: second, first, third
+    assert_equal [1, 2, 3], [@second_item, @first_item, @third_item].map(&:position)
+  end
+
+  def test_creating_new_items_after_soft_delete
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Create a new item - it should go to the end of visible items
+    fourth_item = @list.paranoid_items.create name: "Fourth Item"
+
+    # The new item should be at position 4 (after the gap left by soft-deleted item)
+    assert_equal 4, fourth_item.position
+
+    # Visible items should be first (1), third (3), fourth (4)
+    assert_equal [1, 3, 4], @list.paranoid_items.order(:position).pluck(:position)
+  end
+
+  def test_positioning_columns_includes_record_scope
+    config = ParanoidItem.positioning_columns[:position]
+    assert config.key?(:record_scope)
+    assert_equal :unscoped, config[:record_scope]
+  end
+
+  def test_without_record_scope_option_defaults_to_nil
+    config = Item.positioning_columns[:position]
+    assert config.key?(:record_scope)
+    assert_nil config[:record_scope]
+  end
+end
+
 class TestSTIPositioning < Minitest::Test
   include Minitest::Hooks
 
