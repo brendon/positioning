@@ -117,6 +117,15 @@ ActiveRecord::Migration.suppress_messages do
     end
 
     add_index :paranoid_items, [:list_id, :position], unique: true, where: "deleted_at IS NULL"
+
+    create_table :paranoid_item_with_procs, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.references :list, null: false
+      t.datetime :deleted_at
+    end
+
+    add_index :paranoid_item_with_procs, [:list_id, :position], unique: true, where: "deleted_at IS NULL"
   end
 end
 

@@ -1457,6 +1457,98 @@ class TestSoftDeletePositioning < Minitest::Test
   end
 end
 
+class TestSoftDeletePositioningWithProc < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def setup
+    @list = List.create name: "List"
+    @first_item = @list.paranoid_item_with_procs.create name: "First Item"
+    @second_item = @list.paranoid_item_with_procs.create name: "Second Item"
+    @third_item = @list.paranoid_item_with_procs.create name: "Third Item"
+
+    @models = [@first_item, @second_item, @third_item]
+    reload_models
+  end
+
+  def reload_models
+    @models.map(&:reload)
+  end
+
+  def test_initial_positioning
+    assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
+  end
+
+  def test_record_scope_proc_stores_option
+    config = ParanoidItemWithProc.positioning_columns[:position]
+    assert_instance_of Proc, config[:record_scope]
+  end
+
+  def test_recover_soft_deleted_record_to_end_of_list
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Recover the soft-deleted record (this would fail without the proc)
+    # because the default scope excludes deleted records
+    deleted_item = ParanoidItemWithProc.unscoped.find(@second_item.id)
+    deleted_item.recover
+
+    # The recovered item should be at the end of the list
+    reload_models
+    assert_equal [1, 3, 4], [@first_item, @third_item, @second_item].map(&:position)
+    assert_nil @second_item.deleted_at
+  end
+
+  def test_recover_soft_deleted_record_to_specific_position
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Recover to a specific position
+    deleted_item = ParanoidItemWithProc.unscoped.find(@second_item.id)
+    deleted_item.deleted_at = nil
+    deleted_item.position = 1
+    deleted_item.save!
+
+    reload_models
+    assert_equal [1, 2, 4], [@second_item, @first_item, @third_item].map(&:position)
+  end
+
+  def test_position_was_works_for_soft_deleted_record
+    # Soft delete the second item
+    @second_item.soft_delete
+
+    # Access the soft-deleted record
+    deleted_item = ParanoidItemWithProc.unscoped.find(@second_item.id)
+
+    # Simulate what happens during an update - the mechanisms should be able
+    # to find the current position even though the record is soft-deleted
+    mechanisms = Positioning::Mechanisms.new(deleted_item, :position)
+    assert_equal 2, mechanisms.send(:position_was)
+  end
+
+  def test_proc_receives_scope_and_can_modify_it
+    # Verify the proc is called with the scope and can modify it
+    config = ParanoidItemWithProc.positioning_columns[:position]
+    proc = config[:record_scope]
+
+    # Create a test scope
+    test_scope = ParanoidItemWithProc.where(id: @first_item.id)
+
+    # The proc should unscope the deleted_at condition
+    result = proc.call(test_scope)
+
+    # The result should be a relation that can find soft-deleted records
+    @first_item.soft_delete
+    assert_equal @first_item, result.first
+  end
+end
+
 class TestSTIPositioning < Minitest::Test
   include Minitest::Hooks
 

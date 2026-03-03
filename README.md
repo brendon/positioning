@@ -278,6 +278,66 @@ If you must position child models separately, scope their position by the `type`
 positioned on: [:type]
 ```
 
+##### Soft-Delete Gems (acts_as_paranoid, discard, etc.)
+
+When using positioning with soft-delete gems like `acts_as_paranoid`, `paranoia`, or `discard`, you may encounter issues when recovering (restoring) soft-deleted records. This happens because these gems add a default scope that excludes soft-deleted records, and positioning's internal queries respect that default scope.
+
+For example, with `acts_as_paranoid`:
+
+```ruby
+class Item < ActiveRecord::Base
+  acts_as_paranoid
+  belongs_to :list
+  positioned on: :list
+end
+
+item = list.items.create!(name: "Test")
+item.destroy  # Soft-deletes the record
+item.recover! # Fails with NoMethodError: undefined method `+' for nil:NilClass
+```
+
+The error occurs because positioning cannot find the soft-deleted record to determine its current position.
+
+**Solution: Use the `record_scope` option**
+
+You can use the `record_scope` option to tell positioning how to find records that may be excluded from the default scope:
+
+**Option 1: Use `:unscoped` (simple but removes ALL default scopes)**
+
+```ruby
+class Item < ActiveRecord::Base
+  acts_as_paranoid
+  belongs_to :list
+  positioned on: :list, record_scope: :unscoped
+end
+```
+
+This uses `unscoped` to bypass all default scopes when looking up the record. This is simple but may not be appropriate if you have other default scopes (like multi-tenancy) that should be preserved.
+
+**Option 2: Use a Proc (targeted, preserves other default scopes)**
+
+```ruby
+class Item < ActiveRecord::Base
+  acts_as_paranoid
+  belongs_to :list
+  positioned on: :list, record_scope: ->(scope) { scope.unscope(where: :deleted_at) }
+end
+```
+
+This approach only removes the `deleted_at` condition from the scope, preserving any other default scopes your model may have. This is the recommended approach if you have multiple default scopes or use multi-tenancy.
+
+**For discard gem users:**
+
+```ruby
+class Item < ActiveRecord::Base
+  include Discard::Model
+  belongs_to :list
+  positioned on: :list, record_scope: ->(scope) { scope.unscope(where: :discarded_at) }
+end
+```
+
+The proc receives the current scope (already filtered by primary key) and should return a modified scope that can find soft-deleted records.
+
 ## Concurrency
 
 The queries that this gem runs (especially those that seek the next position integer available) are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
