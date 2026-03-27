@@ -566,6 +566,32 @@ class TestPositioningMechanisms < Minitest::Test
     list.destroy
     assert mechanisms.send(:destroyed_via_positioning_scope?)
   end
+
+  def test_destroyed_via_positioning_scope_with_composite_foreign_key
+    list = List.create name: "List"
+    item = list.items.create name: "Item"
+
+    mechanisms = Positioning::Mechanisms.new(item, :position)
+
+    mock_association = mock
+    mock_association.stubs(:foreign_key).returns(["list_id", "other_key"])
+    item.stubs(:destroyed_by_association).returns(mock_association)
+
+    assert mechanisms.send(:destroyed_via_positioning_scope?)
+  end
+
+  def test_destroyed_via_positioning_scope_with_composite_foreign_key_no_match
+    list = List.create name: "List"
+    item = list.items.create name: "Item"
+
+    mechanisms = Positioning::Mechanisms.new(item, :position)
+
+    mock_association = mock
+    mock_association.stubs(:foreign_key).returns(["other_key", "another_key"])
+    item.stubs(:destroyed_by_association).returns(mock_association)
+
+    refute mechanisms.send(:destroyed_via_positioning_scope?)
+  end
 end
 
 class TestPositioningScopes < Minitest::Test

@@ -221,8 +221,12 @@ module Positioning
     end
 
     def destroyed_via_positioning_scope?
-      @positioned.destroyed_by_association && scope_columns.any? do |scope_column|
-        @positioned.destroyed_by_association.foreign_key == scope_column
+      return false unless @positioned.destroyed_by_association
+
+      foreign_keys = Array(@positioned.destroyed_by_association.foreign_key).map(&:to_s)
+
+      scope_columns.any? do |scope_column|
+        foreign_keys.include?(scope_column.to_s)
       end
     end
   end
