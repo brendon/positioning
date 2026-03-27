@@ -621,6 +621,15 @@ class TestPositioningScopes < Minitest::Test
     assert_equal({position: {scope_columns: ["includable_id", "includable_type"], scope_associations: [:includable]}}, Entity.positioning_columns)
   end
 
+  def test_that_position_columns_will_cope_with_composite_foreign_key
+    skip "Composite foreign keys require Rails 7.2+" if ActiveRecord.version < Gem::Version.new("7.2.0")
+
+    assert_equal(
+      {position: {scope_columns: ["cpki_item_id", "cpki_account_id"], scope_associations: [:composite_primary_key_item]}},
+      CompositeForeignKeyItem.positioning_columns
+    )
+  end
+
   def test_that_position_columns_must_have_unique_keys
     assert_raises(Positioning::Error) do
       Item.send :positioned, on: :list
@@ -1161,6 +1170,139 @@ class TestCompositePrimaryKeyPositioning < TestPositioning
         number += 1
       end
     end
+  end
+end
+
+class TestCompositeForeignKeyPositioning < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def setup
+    skip "Composite foreign keys require Rails 7.2+" if ActiveRecord.version < Gem::Version.new("7.2.0")
+
+    list = List.create name: "List"
+    @first_parent = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "First Parent")
+    @second_parent = CompositePrimaryKeyItem.create(item_id: 2, account_id: 2, list: list, name: "Second Parent")
+
+    @first_item = @first_parent.composite_foreign_key_items.create(name: "First Item")
+    @second_item = @first_parent.composite_foreign_key_items.create(name: "Second Item")
+    @third_item = @first_parent.composite_foreign_key_items.create(name: "Third Item")
+    @fourth_item = @second_parent.composite_foreign_key_items.create(name: "Fourth Item")
+    @fifth_item = @second_parent.composite_foreign_key_items.create(name: "Fifth Item")
+
+    @models = [
+      @first_item, @second_item, @third_item, @fourth_item, @fifth_item
+    ]
+
+    reload_models
+  end
+
+  def reload_models
+    @models.map(&:reload)
+  end
+
+  def test_initial_positioning
+    assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
+    assert_equal [1, 2], [@fourth_item, @fifth_item].map(&:position)
+  end
+
+  def test_scope_isolation
+    sixth_item = @second_parent.composite_foreign_key_items.create(name: "Sixth Item")
+    reload_models
+
+    assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
+    assert_equal [1, 2, 3], [@fourth_item, @fifth_item, sixth_item].map(&:position)
+  end
+
+  def test_position_on_create
+    new_item = @first_parent.composite_foreign_key_items.create(name: "New Item", position: 2)
+    reload_models
+
+    assert_equal [1, 2, 3, 4], [@first_item, new_item, @second_item, @third_item].map(&:position)
+    assert_equal [1, 2], [@fourth_item, @fifth_item].map(&:position)
+  end
+
+  def test_position_on_create_with_first
+    new_item = @first_parent.composite_foreign_key_items.create(name: "New Item", position: :first)
+    reload_models
+
+    assert_equal [1, 2, 3, 4], [new_item, @first_item, @second_item, @third_item].map(&:position)
+  end
+
+  def test_position_on_create_with_last
+    new_item = @first_parent.composite_foreign_key_items.create(name: "New Item", position: :last)
+    reload_models
+
+    assert_equal [1, 2, 3, 4], [@first_item, @second_item, @third_item, new_item].map(&:position)
+  end
+
+  def test_position_update
+    @first_item.update position: 3
+    reload_models
+
+    assert_equal [1, 2, 3], [@second_item, @third_item, @first_item].map(&:position)
+  end
+
+  def test_position_update_with_before
+    @third_item.update position: {before: @second_item}
+    reload_models
+
+    assert_equal [1, 2, 3], [@first_item, @third_item, @second_item].map(&:position)
+  end
+
+  def test_position_update_with_after
+    @first_item.update position: {after: @second_item}
+    reload_models
+
+    assert_equal [1, 2, 3], [@second_item, @first_item, @third_item].map(&:position)
+  end
+
+  def test_destroy_contracts_positions
+    @second_item.destroy
+    @models.delete @second_item
+    reload_models
+
+    assert_equal [1, 2], [@first_item, @third_item].map(&:position)
+    assert_equal [1, 2], [@fourth_item, @fifth_item].map(&:position)
+  end
+
+  def test_scope_change
+    @second_item.update(cpki_item_id: @second_parent.item_id, cpki_account_id: @second_parent.account_id)
+    reload_models
+
+    assert_equal [1, 2], [@first_item, @third_item].map(&:position)
+    assert_equal [1, 2, 3], [@fourth_item, @fifth_item, @second_item].map(&:position)
+  end
+
+  def test_scope_change_with_position
+    @second_item.update(cpki_item_id: @second_parent.item_id, cpki_account_id: @second_parent.account_id, position: 1)
+    reload_models
+
+    assert_equal [1, 2], [@first_item, @third_item].map(&:position)
+    assert_equal [1, 2, 3], [@second_item, @fourth_item, @fifth_item].map(&:position)
+  end
+
+  def test_destroying_parent_destroys_children
+    @first_parent.destroy
+
+    assert_equal 0, CompositeForeignKeyItem.where(cpki_item_id: @first_parent.item_id, cpki_account_id: @first_parent.account_id).count
+    assert_equal [1, 2], [@fourth_item, @fifth_item].map(&:reload).map(&:position)
+  end
+
+  def test_prior_and_subsequent
+    assert_nil @first_item.prior_position
+    assert_equal @first_item, @second_item.prior_position
+    assert_equal @second_item, @third_item.prior_position
+
+    assert_equal @second_item, @first_item.subsequent_position
+    assert_equal @third_item, @second_item.subsequent_position
+    assert_nil @third_item.subsequent_position
   end
 end
 
