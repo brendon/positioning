@@ -568,8 +568,6 @@ class TestPositioningMechanisms < Minitest::Test
   end
 
   def test_destroyed_via_positioning_scope_with_composite_foreign_key
-    skip "Composite foreign keys require Rails 7.2+" if ActiveRecord.version < Gem::Version.new("7.2.0")
-
     list = List.create(name: "List")
     parent = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "Parent")
     child = parent.composite_foreign_key_items.create(name: "Child 1")
@@ -622,8 +620,6 @@ class TestPositioningScopes < Minitest::Test
   end
 
   def test_that_position_columns_will_cope_with_composite_foreign_key
-    skip "Composite foreign keys require Rails 7.2+" if ActiveRecord.version < Gem::Version.new("7.2.0")
-
     assert_equal(
       {position: {scope_columns: ["cpki_item_id", "cpki_account_id"], scope_associations: [:composite_primary_key_item]}},
       CompositeForeignKeyItem.positioning_columns
@@ -1159,8 +1155,6 @@ end
 
 class TestCompositePrimaryKeyPositioning < TestPositioning
   def configure
-    skip if ActiveRecord.version < Gem::Version.new("7.1.0")
-
     @association = :composite_primary_key_items
     @id = Enumerator.new do |yielder|
       number = 1
@@ -1184,8 +1178,6 @@ class TestCompositeForeignKeyPositioning < Minitest::Test
   end
 
   def setup
-    skip "Composite foreign keys require Rails 7.2+" if ActiveRecord.version < Gem::Version.new("7.2.0")
-
     list = List.create name: "List"
     @first_parent = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "First Parent")
     @second_parent = CompositePrimaryKeyItem.create(item_id: 2, account_id: 2, list: list, name: "Second Parent")
