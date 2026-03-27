@@ -55,6 +55,22 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :composite_primary_key_items, [:list_id, :position], unique: true
 
+    if ActiveRecord.version >= Gem::Version.new("7.2.0")
+      create_table :composite_key_lists, primary_key: [:shop_id, :id], force: true do |t|
+        t.integer :shop_id, null: false
+        t.string :name
+      end
+
+      create_table :composite_key_list_items, force: true do |t|
+        t.string :name
+        t.integer :position, null: false
+        t.integer :shop_id, null: false
+        t.integer :composite_key_list_id, null: false
+      end
+
+      add_index :composite_key_list_items, [:shop_id, :composite_key_list_id, :position], unique: true, name: "index_ckli_on_scope_and_position"
+    end
+
     create_table :categories, force: true do |t|
       t.string :name
       t.integer :position, null: false

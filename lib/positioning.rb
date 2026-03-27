@@ -35,7 +35,7 @@ module Positioning
             reflection = reflections[scope_component]
 
             if reflection&.belongs_to?
-              positioning_columns[column][:scope_columns].concat Array(reflection.foreign_key).map(&:to_s)
+              Array(reflection.foreign_key).each { |fk| positioning_columns[column][:scope_columns] << fk }
               positioning_columns[column][:scope_columns] << reflection.foreign_type if reflection.polymorphic?
               positioning_columns[column][:scope_associations] << reflection.name
             else
