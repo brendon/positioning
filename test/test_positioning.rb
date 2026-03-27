@@ -570,14 +570,15 @@ class TestPositioningMechanisms < Minitest::Test
   def test_destroyed_via_positioning_scope_with_composite_foreign_key
     skip "Composite foreign keys require Rails 7.2+" if ActiveRecord.version < Gem::Version.new("7.2.0")
 
-    list = CompositeKeyList.create(shop_id: 1, name: "List")
-    item = list.composite_key_list_items.create(name: "Item 1")
-    list.composite_key_list_items.create(name: "Item 2")
+    list = List.create(name: "List")
+    parent = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "Parent")
+    child = parent.composite_foreign_key_items.create(name: "Child 1")
+    parent.composite_foreign_key_items.create(name: "Child 2")
 
-    mechanisms = Positioning::Mechanisms.new(item, :position)
+    mechanisms = Positioning::Mechanisms.new(child, :position)
     refute mechanisms.send(:destroyed_via_positioning_scope?)
 
-    list.destroy
+    parent.destroy
     assert mechanisms.send(:destroyed_via_positioning_scope?)
   end
 end
