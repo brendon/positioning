@@ -222,7 +222,7 @@ module Positioning
 
     def destroyed_via_positioning_scope?
       @positioned.destroyed_by_association && scope_columns.any? do |scope_column|
-        Array(@positioned.destroyed_by_association.foreign_key).include?(scope_column)
+        @positioned.destroyed_by_association.foreign_key == scope_column
       end
     end
   end
