@@ -621,7 +621,7 @@ class TestPositioningScopes < Minitest::Test
 
   def test_that_position_columns_will_cope_with_composite_foreign_key
     assert_equal(
-      {position: {scope_columns: [["cpki_item_id", "cpki_account_id"]], scope_associations: [:composite_primary_key_item]}},
+      {position: {scope_columns: [["cpki_item_id", "cpki_account_id"]], scope_associations: [:list]}},
       CompositeForeignKeyItem.positioning_columns
     )
   end
@@ -1181,8 +1181,8 @@ class TestCompositeForeignKeyPositioning < TestPositioning
     configure
 
     list = List.create name: "List"
-    @first_list = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "First Parent")
-    @second_list = CompositePrimaryKeyItem.create(item_id: 2, account_id: 2, list: list, name: "Second Parent")
+    @first_list = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "First List")
+    @second_list = CompositePrimaryKeyItem.create(item_id: 2, account_id: 2, list: list, name: "Second List")
     @first_item = @first_list.send(@association).create id: @id.next, name: "First Item"
     @second_item = @first_list.send(@association).create id: @id.next, name: "Second Item"
     @third_item = @first_list.send(@association).create id: @id.next, name: "Third Item"
@@ -1196,41 +1196,6 @@ class TestCompositeForeignKeyPositioning < TestPositioning
     ]
 
     reload_models
-  end
-
-  # Scope change tests are not applicable because CompositeForeignKeyItem's
-  # scope is :composite_primary_key_item, not :list
-  def test_that_an_item_is_added_to_the_end_of_a_new_scope_by_default
-  end
-
-  def test_that_an_item_is_added_to_position_of_a_new_scope_when_explicitly_set
-  end
-
-  def test_that_position_is_assignable_on_update_in_new_scope
-  end
-
-  def test_that_item_position_is_clamped_up_to_1_on_update_scope
-  end
-
-  def test_that_item_position_is_clamped_down_to_max_plus_1_on_update_scope
-  end
-
-  def test_that_items_are_moved_out_of_the_way_on_update_scope_with_before
-  end
-
-  def test_that_items_are_moved_out_of_the_way_on_update_scope_with_before_id
-  end
-
-  def test_that_items_are_moved_out_of_the_way_on_update_scope_with_before_nil
-  end
-
-  def test_that_items_are_moved_out_of_the_way_on_update_scope_with_after
-  end
-
-  def test_that_items_are_moved_out_of_the_way_on_update_scope_with_after_id
-  end
-
-  def test_that_items_are_moved_out_of_the_way_on_update_scope_with_after_nil
   end
 end
 

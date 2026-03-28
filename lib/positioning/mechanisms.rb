@@ -215,7 +215,7 @@ module Positioning
     end
 
     def positioning_scope_changed?
-      scope_columns.any? do |scope_column|
+      scope_columns.flatten.any? do |scope_column|
         @positioned.attribute_changed?(scope_column)
       end
     end
