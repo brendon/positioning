@@ -566,6 +566,23 @@ class TestPositioningMechanisms < Minitest::Test
     list.destroy
     assert mechanisms.send(:destroyed_via_positioning_scope?)
   end
+
+  def test_destroyed_via_positioning_scope_with_composite_foreign_key
+    list = List.create(name: "List")
+    parent = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "Parent")
+    child1 = parent.composite_foreign_key_items.create(name: "Child 1")
+    child2 = parent.composite_foreign_key_items.create(name: "Child 2")
+
+    mechanisms = Positioning::Mechanisms.new(child1, :position)
+    refute mechanisms.send(:destroyed_via_positioning_scope?)
+
+    mechanisms = Positioning::Mechanisms.new(child2, :position)
+    child2.destroy
+    refute mechanisms.send(:destroyed_via_positioning_scope?)
+
+    parent.destroy
+    assert mechanisms.send(:destroyed_via_positioning_scope?)
+  end
 end
 
 class TestPositioningScopes < Minitest::Test
@@ -604,6 +621,13 @@ class TestPositioningScopes < Minitest::Test
 
   def test_that_position_columns_will_cope_with_polymorphic_belong_to
     assert_equal({position: {scope_columns: ["includable_id", "includable_type"], scope_associations: [:includable]}}, Entity.positioning_columns)
+  end
+
+  def test_that_position_columns_will_cope_with_composite_foreign_key
+    assert_equal(
+      {position: {scope_columns: ["cpki_item_id", "cpki_account_id"], scope_associations: [:list]}},
+      CompositeForeignKeyItem.positioning_columns
+    )
   end
 
   def test_that_position_columns_must_have_unique_keys
@@ -1135,8 +1159,6 @@ end
 
 class TestCompositePrimaryKeyPositioning < TestPositioning
   def configure
-    skip if ActiveRecord.version < Gem::Version.new("7.1.0")
-
     @association = :composite_primary_key_items
     @id = Enumerator.new do |yielder|
       number = 1
@@ -1146,6 +1168,38 @@ class TestCompositePrimaryKeyPositioning < TestPositioning
         number += 1
       end
     end
+  end
+end
+
+class TestCompositeForeignKeyPositioning < TestPositioning
+  def configure
+    @association = :composite_foreign_key_items
+    @id = Enumerator.new do |yielder|
+      loop do
+        yielder.yield(nil)
+      end
+    end
+  end
+
+  def setup
+    configure
+
+    list = List.create name: "List"
+    @first_list = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "First List")
+    @second_list = CompositePrimaryKeyItem.create(item_id: 2, account_id: 2, list: list, name: "Second List")
+    @first_item = @first_list.send(@association).create id: @id.next, name: "First Item"
+    @second_item = @first_list.send(@association).create id: @id.next, name: "Second Item"
+    @third_item = @first_list.send(@association).create id: @id.next, name: "Third Item"
+    @fourth_item = @second_list.send(@association).create id: @id.next, name: "Fourth Item"
+    @fifth_item = @second_list.send(@association).create id: @id.next, name: "Fifth Item"
+    @sixth_item = @second_list.send(@association).create id: @id.next, name: "Sixth Item"
+
+    @models = [
+      @first_list, @second_list, @first_item, @second_item,
+      @third_item, @fourth_item, @fifth_item, @sixth_item
+    ]
+
+    reload_models
   end
 end
 

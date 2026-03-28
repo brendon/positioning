@@ -55,6 +55,15 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :composite_primary_key_items, [:list_id, :position], unique: true
 
+    create_table :composite_foreign_key_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.integer :cpki_item_id, null: false
+      t.integer :cpki_account_id, null: false
+    end
+
+    add_index :composite_foreign_key_items, [:cpki_item_id, :cpki_account_id, :position], unique: true, name: "index_cfki_on_scope_and_position"
+
     create_table :categories, force: true do |t|
       t.string :name
       t.integer :position, null: false
