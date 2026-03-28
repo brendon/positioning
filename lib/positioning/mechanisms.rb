@@ -215,14 +215,14 @@ module Positioning
     end
 
     def positioning_scope_changed?
-      scope_columns.flatten.any? do |scope_column|
+      scope_columns.any? do |scope_column|
         @positioned.attribute_changed?(scope_column)
       end
     end
 
     def destroyed_via_positioning_scope?
       @positioned.destroyed_by_association && scope_columns.any? do |scope_column|
-        @positioned.destroyed_by_association.foreign_key == scope_column
+        Array(@positioned.destroyed_by_association.foreign_key).include?(scope_column)
       end
     end
   end

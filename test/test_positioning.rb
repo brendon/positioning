@@ -621,7 +621,7 @@ class TestPositioningScopes < Minitest::Test
 
   def test_that_position_columns_will_cope_with_composite_foreign_key
     assert_equal(
-      {position: {scope_columns: [["cpki_item_id", "cpki_account_id"]], scope_associations: [:list]}},
+      {position: {scope_columns: ["cpki_item_id", "cpki_account_id"], scope_associations: [:list]}},
       CompositeForeignKeyItem.positioning_columns
     )
   end
