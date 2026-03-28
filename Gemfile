@@ -18,12 +18,7 @@ end
 
 case ENV["DB"]
 when "sqlite"
-  if ENV["RAILS_VERSION"] &&
-      Gem::Version.new(ENV["RAILS_VERSION"]) >= Gem::Version.new("7.2")
-    gem "sqlite3", "~> 2.9.0"
-  else
-    gem "sqlite3", "~> 1.7.3"
-  end
+  gem "sqlite3", "~> 2.9.0"
 when "postgresql"
   gem "pg", "~> 1.6.3"
 else
