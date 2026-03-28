@@ -570,10 +570,14 @@ class TestPositioningMechanisms < Minitest::Test
   def test_destroyed_via_positioning_scope_with_composite_foreign_key
     list = List.create(name: "List")
     parent = CompositePrimaryKeyItem.create(item_id: 1, account_id: 1, list: list, name: "Parent")
-    child = parent.composite_foreign_key_items.create(name: "Child 1")
-    parent.composite_foreign_key_items.create(name: "Child 2")
+    child1 = parent.composite_foreign_key_items.create(name: "Child 1")
+    child2 = parent.composite_foreign_key_items.create(name: "Child 2")
 
-    mechanisms = Positioning::Mechanisms.new(child, :position)
+    mechanisms = Positioning::Mechanisms.new(child1, :position)
+    refute mechanisms.send(:destroyed_via_positioning_scope?)
+
+    mechanisms = Positioning::Mechanisms.new(child2, :position)
+    child2.destroy
     refute mechanisms.send(:destroyed_via_positioning_scope?)
 
     parent.destroy
