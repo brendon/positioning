@@ -14,8 +14,24 @@ module Positioning
     extend ActiveSupport::Concern
 
     class_methods do
+      # Scope components are resolved on first use rather than in `positioned`, so that a belongs_to
+      # declared after `positioned` (or in a concern included later) is still recognised.
       def positioning_columns
-        @positioning_columns ||= {}
+        @positioning_columns ||= (@positioning_scopes || {}).transform_values do |scope_components|
+          {scope_columns: [], scope_associations: []}.tap do |scope|
+            scope_components.each do |scope_component|
+              reflection = reflections[scope_component]
+
+              if reflection&.belongs_to?
+                scope[:scope_columns].concat Array(reflection.foreign_key)
+                scope[:scope_columns] << reflection.foreign_type if reflection.polymorphic?
+                scope[:scope_associations] << reflection.name
+              else
+                scope[:scope_columns] << scope_component
+              end
+            end
+          end
+        end
       end
 
       def positioned(on: [], column: :position)
@@ -24,24 +40,13 @@ module Positioning
         end
 
         column = column.to_sym
+        @positioning_scopes ||= {}
 
-        if positioning_columns.key? column
-          raise Error.new "The column `#{column}` has already been used by the scope `#{positioning_columns[column]}`."
+        if @positioning_scopes.key? column
+          raise Error.new "The column `#{column}` has already been used by the scope `#{@positioning_scopes[column]}`."
         else
-          positioning_columns[column] = {scope_columns: [], scope_associations: []}
-
-          Array.wrap(on).each do |scope_component|
-            scope_component = scope_component.to_s
-            reflection = reflections[scope_component]
-
-            if reflection&.belongs_to?
-              positioning_columns[column][:scope_columns].concat Array(reflection.foreign_key)
-              positioning_columns[column][:scope_columns] << reflection.foreign_type if reflection.polymorphic?
-              positioning_columns[column][:scope_associations] << reflection.name
-            else
-              positioning_columns[column][:scope_columns] << scope_component
-            end
-          end
+          @positioning_scopes[column] = Array.wrap(on).map(&:to_s)
+          @positioning_columns = nil
 
           define_method(:"prior_#{column}") { Mechanisms.new(self, column).prior }
           define_method(:"subsequent_#{column}") { Mechanisms.new(self, column).subsequent }
