@@ -131,6 +131,32 @@ class TestTransactionSafety < Minitest::Test
 
     Product.where(id: products.map(&:id)).delete_all
   end
+
+  def test_no_duplicate_row_values_when_creating_without_a_parent
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    categories = [Category.create(name: "Root")]
+
+    4.times do
+      threads = 5.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            categories << Category.create(name: "Root")
+          rescue ActiveRecord::Deadlocked
+            # MySQL can still occasionally deadlock when locking rows rather than a parent record.
+            # The transaction is rolled back, so it can't produce duplicates, which is what we're checking.
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal (1..categories.length).to_a, Category.where(id: categories.map(&:id)).order(:position).pluck(:position)
+
+    Category.where(id: categories.map(&:id)).delete_all
+  end
 end
 
 class TestPositioningMechanisms < Minitest::Test
@@ -542,6 +568,23 @@ class TestPositioningMechanisms < Minitest::Test
     end
 
     assert_equal 0, instantiated
+  end
+
+  def test_lock_positioning_scope_with_nil_scope_association
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    Category.create name: "First Category"
+    category = Category.new name: "Second Category"
+    mechanisms = Positioning::Mechanisms.new(category, :position)
+
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    assert_match(/FROM .categories. WHERE .categories.\..parent_id. IS NULL .*FOR UPDATE/i, queries.join("\n"))
   end
 
   def test_positioning_scope

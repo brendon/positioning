@@ -187,24 +187,27 @@ module Positioning
     end
 
     def lock_positioning_scope!
-      if scope_associations.present?
-        scope_associations.each do |scope_association|
-          if @positioned.persisted? && positioning_scope_changed?
-            associated_record = record_scope.first.send(scope_association)
-            associated_record.class.base_class.lock.find(associated_record.id) if associated_record
-          end
+      if @positioned.persisted? && positioning_scope_changed?
+        lock_scope positioning_scope_was, record_scope.first
+      end
 
-          associated_record = @positioned.send(scope_association)
-          associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+      lock_scope positioning_scope, @positioned
+    end
+
+    # Lock the scope's associated record(s) if it has any, otherwise lock the records in the scope.
+    def lock_scope(scope, record)
+      associated_records = scope_associations.filter_map do |scope_association|
+        record.send(scope_association)
+      end
+
+      if associated_records.any?
+        associated_records.each do |associated_record|
+          associated_record.class.base_class.lock.find(associated_record.id)
         end
       else
         # Ordering by primary key keeps MySQL's lock waits off the position index. Otherwise a waiting
         # transaction can block our own UPDATEs from writing position values there, and deadlock.
-        if @positioned.persisted? && positioning_scope_changed?
-          positioning_scope_was.reorder(primary_key).lock.ids
-        end
-
-        positioning_scope.reorder(primary_key).lock.ids
+        scope.reorder(primary_key).lock.ids
       end
     end
 
