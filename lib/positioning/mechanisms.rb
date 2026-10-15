@@ -45,11 +45,18 @@ module Positioning
     end
 
     def destroy_position
-      unless destroyed_via_positioning_scope?
+      if destroyed_via_positioning_scope?
+        yield
+      else
         lock_positioning_scope!
 
-        move_out_of_the_way
-        contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
+        position_was # Memoize the original position while the row still exists
+
+        yield
+
+        # Only close the gap once the row is gone. A later before_destroy callback can halt the destroy,
+        # and inside an outer transaction that rollback is swallowed.
+        contract(positioning_scope, (position_was + 1)..) if @positioned.destroyed? && !position_was.nil?
       end
     end
 

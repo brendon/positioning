@@ -684,6 +684,24 @@ class TestPositioningScopes < Minitest::Test
 
     assert_equal [1, 2], [first_item.reload, third_item.reload].map(&:position)
   end
+
+  def test_that_a_halted_destroy_leaves_the_list_intact
+    list = List.create name: "First List"
+    first_item = RestrictedItem.create list: list, name: "First Item"
+    second_item = RestrictedItem.create list: list, name: "Second Item"
+    third_item = RestrictedItem.create list: list, name: "Third Item"
+
+    second_item.restrictions.create
+
+    # Within an outer transaction (as here), the rollback of the halted destroy is swallowed
+    refute second_item.destroy
+
+    assert_equal [1, 2, 3], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
+
+    third_item.destroy
+
+    assert_equal [1, 2], [first_item.reload, second_item.reload].map(&:position)
+  end
 end
 
 class TestRecordScope < Minitest::Test
