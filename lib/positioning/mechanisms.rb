@@ -31,7 +31,10 @@ module Positioning
       solidify_position
       move_out_of_the_way
 
-      if positioning_scope_changed?
+      # A record without a position doesn't occupy a slot, so there's no gap to close
+      if position_was.nil?
+        expand(positioning_scope, position..)
+      elsif positioning_scope_changed?
         contract(positioning_scope_was, position_was..)
         expand(positioning_scope, position..)
       elsif position_was > position
@@ -46,7 +49,7 @@ module Positioning
         lock_positioning_scope!
 
         move_out_of_the_way
-        contract(positioning_scope, (position_was + 1)..)
+        contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
       end
     end
 
@@ -98,7 +101,9 @@ module Positioning
     end
 
     def position_was
-      @position_was ||= record_scope.pick(@column)
+      return @position_was if defined?(@position_was)
+
+      @position_was = record_scope.pick(@column)
     end
 
     def move_out_of_the_way
@@ -212,7 +217,8 @@ module Positioning
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.where(primary_key => [@positioned.id_in_database]).exists?
+      @positioned.persisted? &&
+        positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil).exists?
     end
 
     def positioning_scope_changed?

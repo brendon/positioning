@@ -1425,6 +1425,70 @@ class TestNoScopePositioning < Minitest::Test
   end
 end
 
+class TestNullPositions < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def setup
+    @list = List.create name: "List"
+    @other_list = List.create name: "Other List"
+    @legacy_item = @list.new_items.create name: "Legacy Item"
+    @first_item = @list.new_items.create name: "First Item"
+    @second_item = @list.new_items.create name: "Second Item"
+
+    # A row that predates positioning (or hasn't been healed yet)
+    @legacy_item.update_columns position: nil
+    @first_item.update_columns position: 1
+    @second_item.update_columns position: 2
+  end
+
+  def test_that_a_null_position_can_be_given_a_position
+    @legacy_item.update position: 1
+
+    assert_equal [1, 2, 3], [@legacy_item.reload, @first_item.reload, @second_item.reload].map(&:position)
+  end
+
+  def test_that_a_null_position_can_be_moved_to_the_end
+    @legacy_item.update position: :last
+
+    assert_equal [1, 2, 3], [@first_item.reload, @second_item.reload, @legacy_item.reload].map(&:position)
+  end
+
+  def test_that_a_null_position_can_be_positioned_relatively
+    @legacy_item.update position: {after: @first_item}
+
+    assert_equal [1, 2, 3], [@first_item.reload, @legacy_item.reload, @second_item.reload].map(&:position)
+  end
+
+  def test_that_destroying_a_null_position_leaves_the_list_intact
+    @legacy_item.destroy
+
+    assert_equal [1, 2], [@first_item.reload, @second_item.reload].map(&:position)
+  end
+
+  def test_that_moving_a_null_position_to_another_scope_leaves_the_list_intact
+    @legacy_item.update list: @other_list
+
+    assert_equal [1, 2], [@first_item.reload, @second_item.reload].map(&:position)
+    assert_equal 1, @legacy_item.reload.position
+  end
+
+  def test_that_destroying_a_record_whose_row_is_already_gone_does_not_raise
+    item = @list.items.create name: "Item"
+    Item.where(id: item.id).delete_all
+
+    item.destroy
+
+    assert item.destroyed?
+  end
+end
+
 class TestSTIPositioning < Minitest::Test
   include Minitest::Hooks
 
