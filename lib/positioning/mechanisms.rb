@@ -221,13 +221,24 @@ module Positioning
       associated_records
         .uniq { |associated_record| [associated_record.class.base_class, associated_record.id] }
         .sort_by { |associated_record| [associated_record.class.base_class.table_name, associated_record.id] }
-        .each { |associated_record| associated_record.class.base_class.lock.find(associated_record.id) }
+        .each { |associated_record| lock_associated_record(associated_record) }
 
       unassociated_scopes.sort_by(&:to_sql).each do |scope|
         # Ordering by primary key keeps MySQL's lock waits off the position index. Otherwise a waiting
         # transaction can block our own UPDATEs from writing position values there, and deadlock.
         scope.reorder(primary_key).lock.ids
       end
+    end
+
+    # On PostgreSQL, FOR NO KEY UPDATE serialises our changes just as well as FOR UPDATE, but it doesn't
+    # conflict with the FOR KEY SHARE lock taken when a row referencing the record by foreign key is
+    # written. With FOR UPDATE, two transactions that each write such a row and then position a record
+    # deadlock.
+    def lock_associated_record(associated_record)
+      model = associated_record.class.base_class
+      lock = model.connection_db_config.adapter.to_s.start_with?("postg") ? "FOR NO KEY UPDATE" : true
+
+      model.lock(lock).find(associated_record.id)
     end
 
     def positioning_scope_was
