@@ -81,6 +81,20 @@ class TestHealing < Minitest::Test
     assert_equal [1, 2, 3], [third_product.reload, second_product.reload, first_product.reload].map(&:position)
   end
 
+  def test_heal_position_from_an_sti_subclass
+    list = List.create name: "List"
+
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    student.update_columns position: 10
+    teacher.update_columns position: 5
+
+    Author::Student.heal_position_column!
+
+    assert_equal [1, 2], [teacher.reload, student.reload].map(&:position)
+  end
+
   def test_heal_position_with_default_scope
     first_list = List.create name: "First List"
 
