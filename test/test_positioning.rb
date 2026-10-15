@@ -17,6 +17,50 @@ class TestRelativePositionStruct < Minitest::Test
 end
 
 class TestTransactionSafety < Minitest::Test
+  def test_no_stale_reads_after_waiting_for_the_lock
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    students = ["A", "B", "C", "D", "E"].map do |name|
+      list.authors.create name: name, type: "Author::Student"
+    end
+
+    locked = Queue.new
+
+    first_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        ActiveRecord::Base.transaction do
+          List.lock.find(list.id)
+          locked << true
+          sleep 0.5
+          list.authors.create name: "New", type: "Author::Student", position: 1
+        end
+      end
+    end
+
+    locked.pop
+
+    second_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        ActiveRecord::Base.transaction do
+          # Any read here (validations, callbacks, app code) pins MySQL's REPEATABLE READ snapshot
+          # before the first thread commits.
+          Author.where(list: list).count
+          students[2].update position: 5
+        end
+      end
+    end
+
+    [first_thread, second_thread].each(&:join)
+
+    assert_equal [[1, "New"], [2, "A"], [3, "B"], [4, "D"], [5, "C"], [6, "E"]],
+      list.authors.order(:position).pluck(:position, :name)
+
+    list.destroy
+  end
+
   def test_no_duplicate_row_values_when_creating
     ActiveRecord::Base.connection_handler.clear_all_connections!
 
