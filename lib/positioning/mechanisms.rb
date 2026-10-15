@@ -198,11 +198,13 @@ module Positioning
           associated_record.class.base_class.lock.find(associated_record.id) if associated_record
         end
       else
+        # Ordering by primary key keeps MySQL's lock waits off the position index. Otherwise a waiting
+        # transaction can block our own UPDATEs from writing position values there, and deadlock.
         if @positioned.persisted? && positioning_scope_changed?
-          positioning_scope_was.lock.all.load
+          positioning_scope_was.reorder(primary_key).lock.ids
         end
 
-        positioning_scope.lock.all.load
+        positioning_scope.reorder(primary_key).lock.ids
       end
     end
 
