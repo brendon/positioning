@@ -817,6 +817,13 @@ class TestPositioning < Minitest::Test
     assert_nil @third_item.subsequent_position
   end
 
+  def test_that_prior_and_subsequent_items_are_nil_without_a_position
+    item = @first_list.send(@association).build name: "New Item"
+
+    assert_nil item.prior_position
+    assert_nil item.subsequent_position
+  end
+
   def test_that_positions_are_automatically_assigned
     assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
     assert_equal [1, 2, 3], [@fourth_item, @fifth_item, @sixth_item].map(&:position)
