@@ -32,6 +32,13 @@ module Positioning
       clear_position if positioning_scope_changed? && !position_changed?
 
       solidify_position
+
+      # Assigning the position a record already has (e.g. a form resubmitting it) moves nothing
+      if !positioning_scope_changed? && position == position_was
+        @positioned.clear_attribute_changes [@column]
+        return
+      end
+
       move_out_of_the_way
 
       # A record without a position doesn't occupy a slot, so there's no gap to close
