@@ -198,25 +198,32 @@ module Positioning
       base_class.where @positioned.slice(*scope_columns)
     end
 
+    # Lock each scope's associated record(s) if it has any, otherwise lock the records in the scope.
+    # Locks are taken in a stable order so that two transactions moving records between the same
+    # scopes in opposite directions can't deadlock.
     def lock_positioning_scope!
-      if @positioned.persisted? && positioning_scope_changed?
-        lock_scope positioning_scope_was, record_scope.first
-      end
+      scopes = [[positioning_scope, @positioned]]
+      scopes << [positioning_scope_was, record_scope.first] if @positioned.persisted? && positioning_scope_changed?
 
-      lock_scope positioning_scope, @positioned
-    end
+      associated_records = []
+      unassociated_scopes = []
 
-    # Lock the scope's associated record(s) if it has any, otherwise lock the records in the scope.
-    def lock_scope(scope, record)
-      associated_records = scope_associations.filter_map do |scope_association|
-        record.send(scope_association)
-      end
+      scopes.each do |scope, record|
+        records = scope_associations.filter_map { |scope_association| record.send(scope_association) }
 
-      if associated_records.any?
-        associated_records.each do |associated_record|
-          associated_record.class.base_class.lock.find(associated_record.id)
+        if records.any?
+          associated_records.concat records
+        else
+          unassociated_scopes << scope
         end
-      else
+      end
+
+      associated_records
+        .uniq { |associated_record| [associated_record.class.base_class, associated_record.id] }
+        .sort_by { |associated_record| [associated_record.class.base_class.table_name, associated_record.id] }
+        .each { |associated_record| associated_record.class.base_class.lock.find(associated_record.id) }
+
+      unassociated_scopes.sort_by(&:to_sql).each do |scope|
         # Ordering by primary key keeps MySQL's lock waits off the position index. Otherwise a waiting
         # transaction can block our own UPDATEs from writing position values there, and deadlock.
         scope.reorder(primary_key).lock.ids
