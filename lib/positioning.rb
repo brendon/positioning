@@ -46,10 +46,14 @@ module Positioning
           define_method(:"prior_#{column}") { Mechanisms.new(self, column).prior }
           define_method(:"subsequent_#{column}") { Mechanisms.new(self, column).subsequent }
 
-          redefine_method(:"#{column}=") do |position|
-            send :"#{column}_will_change!"
-            super(position)
-          end
+          # Defined in a module so that a writer defined in the model itself can call super to reach it,
+          # rather than replacing it (or being replaced by it).
+          include(Module.new do
+            define_method(:"#{column}=") do |position|
+              send :"#{column}_will_change!"
+              super(position)
+            end
+          end)
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }
