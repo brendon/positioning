@@ -30,6 +30,14 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :items, [:list_id, :position], unique: true
 
+    create_table :default_position_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false, default: 0
+      t.references :list, null: false
+    end
+
+    add_index :default_position_items, [:list_id, :position], unique: true
+
     create_table :new_items, force: true do |t|
       t.string :name
       t.integer :position
