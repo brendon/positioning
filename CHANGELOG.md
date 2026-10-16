@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [0.4.8] - 2026-03-28
+
+- Support `belongs_to` scopes with composite foreign keys, including skipping repositioning when the records are destroyed via that association.
+- Only Rails 7.2 and later are tested from this release on.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.

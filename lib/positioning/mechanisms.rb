@@ -56,14 +56,8 @@ module Positioning
       @positioned.class.base_class
     end
 
-    def with_connection
-      if base_class.respond_to? :with_connection
-        base_class.with_connection do |connection|
-          yield connection
-        end
-      else
-        yield base_class.connection
-      end
+    def with_connection(&block)
+      base_class.with_connection(&block)
     end
 
     def primary_key
