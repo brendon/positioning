@@ -39,10 +39,24 @@ module Positioning
       @model.positioning_columns[@column][:scope_associations]
     end
 
+    def primary_key
+      @model.primary_key
+    end
+
+    # Records are first parked on distinct values below anything currently in use (and below 0),
+    # then flipped into 1..n in one statement, so a unique index on the position column can't be
+    # violated part way through.
     def sequence(scope)
-      scope.unscope(:select).reorder(@order).each.with_index(1) do |record, index|
-        record.update_columns @column => index
+      ids = scope.reorder(@order).order(*Array(primary_key)).pluck(*Array(primary_key))
+      return if ids.empty?
+
+      floor = [scope.minimum(@column) || 0, 0].min
+
+      ids.each.with_index(1) do |id, index|
+        @model.unscoped.where(primary_key => [id]).update_all @column => floor - index
       end
+
+      scope.update_all @column => Arel::Nodes::Subtraction.new(Arel::Nodes.build_quoted(floor), @model.arel_table[@column])
     end
   end
 end
