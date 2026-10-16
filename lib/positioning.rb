@@ -53,7 +53,7 @@ module Positioning
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }
-          before_destroy { Mechanisms.new(self, column).destroy_position }
+          around_destroy { |positioned, block| Mechanisms.new(positioned, column).destroy_position(&block) }
 
           define_singleton_method(:"heal_#{column}_column!") do |order = column|
             Healer.new(self, column, order).heal
