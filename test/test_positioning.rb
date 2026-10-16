@@ -108,6 +108,29 @@ class TestTransactionSafety < Minitest::Test
 
     list.destroy
   end
+
+  def test_no_deadlock_when_moving_records_concurrently_without_a_scope_association
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    products = 10.times.map { |index| Product.create name: "Product #{index}" }
+
+    products.each_slice(4) do |slice|
+      threads = slice.map do |product|
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            Product.find(product.id).update position: 1
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal (1..10).to_a, Product.where(id: products.map(&:id)).pluck(:position)
+
+    Product.where(id: products.map(&:id)).delete_all
+  end
 end
 
 class TestPositioningMechanisms < Minitest::Test
@@ -504,6 +527,21 @@ class TestPositioningMechanisms < Minitest::Test
 
     Blog.expects(:lock).once.returns(Blog)
     mechanisms.send(:lock_positioning_scope!)
+  end
+
+  def test_lock_positioning_scope_does_not_instantiate_the_records_it_locks
+    3.times { |index| Product.create name: "Product #{index}" }
+    product = Product.new name: "New Product"
+    mechanisms = Positioning::Mechanisms.new(product, :position)
+
+    instantiated = 0
+    callback = ->(*, payload) { instantiated += payload[:record_count] }
+
+    ActiveSupport::Notifications.subscribed(callback, "instantiation.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    assert_equal 0, instantiated
   end
 
   def test_positioning_scope
