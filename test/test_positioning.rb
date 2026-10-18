@@ -805,6 +805,24 @@ class TestPositioning < Minitest::Test
     assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
   end
 
+  def test_that_assigning_the_current_position_does_not_write_anything
+    [2, {after: @first_item}, {before: @third_item}].each do |position|
+      queries = []
+      callback = ->(*, payload) { queries << payload[:sql] }
+
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        @second_item.update position: position
+      end
+
+      assert_empty queries.grep(/\AUPDATE/i)
+      refute @second_item.saved_change_to_position?
+    end
+
+    reload_models
+
+    assert_equal [1, 2, 3], [@first_item, @second_item, @third_item].map(&:position)
+  end
+
   def test_that_prior_item_is_found
     assert_nil @first_item.prior_position
     assert_equal @first_item, @second_item.prior_position
