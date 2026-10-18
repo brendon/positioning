@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- A position writer defined in the model now composes with positioning's via `super`.
 
 ## [0.4.7] - 2025-08-09
 

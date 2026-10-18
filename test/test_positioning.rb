@@ -652,6 +652,22 @@ class TestPositioningScopes < Minitest::Test
       Positioning::Mechanisms.new(second_item, :position).send(:positioning_scope).order(:position)
   end
 
+  def test_that_a_custom_position_writer_composes_with_ours
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    first_item = CustomWriterItem.create list: first_list, name: "First Item"
+    second_item = CustomWriterItem.create list: first_list, name: "Second Item"
+    third_item = CustomWriterItem.create list: second_list, name: "Third Item"
+    fourth_item = CustomWriterItem.create list: second_list, name: "Fourth Item"
+
+    second_item.update position: "top"
+    assert_equal [1, 2], [second_item.reload, first_item.reload].map(&:position)
+
+    # Assigning the same position it already has still counts as an explicit position in the new scope
+    second_item.update list: second_list, position: 1
+    assert_equal [1, 2, 3], [second_item.reload, third_item.reload, fourth_item.reload].map(&:position)
+  end
+
   def test_that_destroyed_via_positioning_scope_does_not_call_contract
     list = List.create name: "First List"
     list.items.create name: "First Item"
