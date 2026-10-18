@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- Document caveats around validating the position column, halting callbacks, operations that bypass positioning, and the limits of row locking.
 
 ## [0.4.7] - 2025-08-09
 
