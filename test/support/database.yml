@@ -3,6 +3,9 @@ sqlite:
   database: db/test.sqlite3
   pool: 20
   timeout: 5000
+  # The default from Rails 8.0. Rails 7.2 starts transactions DEFERRED, so
+  # concurrent writers fail with BusyException rather than waiting their turn.
+  default_transaction_mode: immediate
 
 mysql:
   adapter: mysql2
