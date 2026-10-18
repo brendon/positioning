@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+- Fix scope changes for records hidden by, or partially selected by, a default scope, and when changing part of a composite primary key.
+- Fix lists being corrupted when a record with a NULL position (or whose row is already gone) is updated or destroyed.
+- Fix stale position reads on MySQL (REPEATABLE READ) after waiting for the scope lock.
+- Don't instantiate every record in a scope (or table) just to lock it.
+- Lock the scope's records when its `belongs_to` association is nil (e.g. the roots of a tree). Previously nothing was locked.
+- Fix deadlocks when records move between the same scopes in opposite directions at the same time.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
