@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- A default on the position column no longer places new records at the start of the list.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
