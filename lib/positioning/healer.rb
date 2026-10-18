@@ -10,12 +10,15 @@ module Positioning
       if scope_columns.present?
         @model.unscope(:order).reselect(*scope_columns).distinct.each do |scope_record|
           @model.transaction do
-            if scope_associations.present?
-              scope_associations.each do |scope_association|
-                scope_record.send(scope_association)&.lock!
-              end
+            associated_records = scope_associations.filter_map do |scope_association|
+              scope_record.send(scope_association)
+            end
+
+            if associated_records.any?
+              associated_records.each(&:lock!)
             else
-              @model.where(scope_record.slice(*scope_columns)).lock!
+              # Relation#lock! only flags the relation, it doesn't run a query
+              @model.where(scope_record.slice(*scope_columns)).lock.ids
             end
 
             sequence @model.where(scope_record.slice(*scope_columns))
@@ -23,7 +26,7 @@ module Positioning
         end
       else
         @model.transaction do
-          @model.all.lock!
+          @model.lock.ids
           sequence @model
         end
       end

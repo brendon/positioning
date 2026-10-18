@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - A default on the position column no longer places new records at the start of the list.
 
 ## [0.4.7] - 2025-08-09
