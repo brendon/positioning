@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - `prior_*` and `subsequent_*` now return `nil` (rather than raising) for records without a position.
+- A position writer defined in the model now composes with positioning's via `super`.
 
 ## [0.4.10] - 2026-11-09
 
