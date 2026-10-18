@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Document caveats around validating the position column, halting callbacks, operations that bypass positioning, and the limits of row locking.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
