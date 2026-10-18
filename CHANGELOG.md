@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- `prior_*` and `subsequent_*` now return `nil` (rather than raising) for records without a position.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
