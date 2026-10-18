@@ -17,6 +17,50 @@ class TestRelativePositionStruct < Minitest::Test
 end
 
 class TestTransactionSafety < Minitest::Test
+  def test_no_stale_reads_after_waiting_for_the_lock
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    students = ["A", "B", "C", "D", "E"].map do |name|
+      list.authors.create name: name, type: "Author::Student"
+    end
+
+    locked = Queue.new
+
+    first_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        ActiveRecord::Base.transaction do
+          List.lock.find(list.id)
+          locked << true
+          sleep 0.5
+          list.authors.create name: "New", type: "Author::Student", position: 1
+        end
+      end
+    end
+
+    locked.pop
+
+    second_thread = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        ActiveRecord::Base.transaction do
+          # Any read here (validations, callbacks, app code) pins MySQL's REPEATABLE READ snapshot
+          # before the first thread commits.
+          Author.where(list: list).count
+          students[2].update position: 5
+        end
+      end
+    end
+
+    [first_thread, second_thread].each(&:join)
+
+    assert_equal [[1, "New"], [2, "A"], [3, "B"], [4, "D"], [5, "C"], [6, "E"]],
+      list.authors.order(:position).pluck(:position, :name)
+
+    list.destroy
+  end
+
   def test_no_duplicate_row_values_when_creating
     ActiveRecord::Base.connection_handler.clear_all_connections!
 
@@ -683,6 +727,55 @@ class TestPositioningScopes < Minitest::Test
     second_item.destroy
 
     assert_equal [1, 2], [first_item.reload, third_item.reload].map(&:position)
+  end
+end
+
+class TestRecordScope < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_a_default_scope_select_does_not_prevent_a_scope_change
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    first_list.default_scope_items.create name: "First Item"
+    second_item = first_list.default_scope_items.create name: "Second Item"
+
+    second_item = DefaultScopeItem.unscoped.find(second_item.id)
+    second_item.update list: second_list
+
+    assert_equal [[second_list.id, 1]], DefaultScopeItem.unscoped.where(id: second_item.id).pluck(:list_id, :position)
+  end
+
+  def test_that_a_record_hidden_by_a_default_scope_can_change_scope
+    list = List.create name: "List"
+    first_item = ArchivableItem.create list: list, name: "First Item"
+    second_item = ArchivableItem.create list: list, name: "Second Item"
+    third_item = ArchivableItem.create list: list, name: "Third Item"
+
+    second_item.update archived_at: Time.current
+    assert_equal [1, 2], [first_item.reload, third_item.reload].map(&:position)
+
+    second_item = ArchivableItem.unscoped.find(second_item.id)
+    second_item.update archived_at: nil
+
+    assert_equal [1, 2, 3], [first_item.reload, third_item.reload, second_item.reload].map(&:position)
+  end
+
+  def test_that_a_primary_key_change_does_not_lose_track_of_the_record
+    list = List.create name: "List"
+    first_item = list.composite_primary_key_items.create item_id: 1, account_id: 1, name: "First Item"
+    second_item = list.composite_primary_key_items.create item_id: 2, account_id: 2, name: "Second Item"
+    third_item = list.composite_primary_key_items.create item_id: 3, account_id: 3, name: "Third Item"
+
+    first_item.update account_id: 4, position: 3
+
+    assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:position)
   end
 end
 
@@ -1373,6 +1466,70 @@ class TestNoScopePositioning < Minitest::Test
       assert_equal Product.all, @models
       assert_equal positions, @models.map(&:position)
     end
+  end
+end
+
+class TestNullPositions < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def setup
+    @list = List.create name: "List"
+    @other_list = List.create name: "Other List"
+    @legacy_item = @list.new_items.create name: "Legacy Item"
+    @first_item = @list.new_items.create name: "First Item"
+    @second_item = @list.new_items.create name: "Second Item"
+
+    # A row that predates positioning (or hasn't been healed yet)
+    @legacy_item.update_columns position: nil
+    @first_item.update_columns position: 1
+    @second_item.update_columns position: 2
+  end
+
+  def test_that_a_null_position_can_be_given_a_position
+    @legacy_item.update position: 1
+
+    assert_equal [1, 2, 3], [@legacy_item.reload, @first_item.reload, @second_item.reload].map(&:position)
+  end
+
+  def test_that_a_null_position_can_be_moved_to_the_end
+    @legacy_item.update position: :last
+
+    assert_equal [1, 2, 3], [@first_item.reload, @second_item.reload, @legacy_item.reload].map(&:position)
+  end
+
+  def test_that_a_null_position_can_be_positioned_relatively
+    @legacy_item.update position: {after: @first_item}
+
+    assert_equal [1, 2, 3], [@first_item.reload, @legacy_item.reload, @second_item.reload].map(&:position)
+  end
+
+  def test_that_destroying_a_null_position_leaves_the_list_intact
+    @legacy_item.destroy
+
+    assert_equal [1, 2], [@first_item.reload, @second_item.reload].map(&:position)
+  end
+
+  def test_that_moving_a_null_position_to_another_scope_leaves_the_list_intact
+    @legacy_item.update list: @other_list
+
+    assert_equal [1, 2], [@first_item.reload, @second_item.reload].map(&:position)
+    assert_equal 1, @legacy_item.reload.position
+  end
+
+  def test_that_destroying_a_record_whose_row_is_already_gone_does_not_raise
+    item = @list.items.create name: "Item"
+    Item.where(id: item.id).delete_all
+
+    item.destroy
+
+    assert item.destroyed?
   end
 end
 

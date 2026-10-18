@@ -31,7 +31,10 @@ module Positioning
       solidify_position
       move_out_of_the_way
 
-      if positioning_scope_changed?
+      # A record without a position doesn't occupy a slot, so there's no gap to close
+      if position_was.nil?
+        expand(positioning_scope, position..)
+      elsif positioning_scope_changed?
         contract(positioning_scope_was, position_was..)
         expand(positioning_scope, position..)
       elsif position_was > position
@@ -46,7 +49,7 @@ module Positioning
         lock_positioning_scope!
 
         move_out_of_the_way
-        contract(positioning_scope, (position_was + 1)..)
+        contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
       end
     end
 
@@ -76,8 +79,9 @@ module Positioning
       end
     end
 
+    # The record's row as it is in the database, regardless of default scopes or in-memory key changes
     def record_scope
-      base_class.where primary_key => [@positioned.id]
+      base_class.unscoped.where primary_key => [@positioned.id_in_database]
     end
 
     def position
@@ -96,8 +100,13 @@ module Positioning
       @positioned.send :"#{@column}_changed?"
     end
 
+    # Reads of positions made after locking the scope are locking reads. Under MySQL's default
+    # REPEATABLE READ isolation a plain read returns the snapshot taken at the transaction's first
+    # read, which can predate changes committed while we were waiting for the lock.
     def position_was
-      @position_was ||= record_scope.pick(@column)
+      return @position_was if defined?(@position_was)
+
+      @position_was = record_scope.lock.pick(@column)
     end
 
     def move_out_of_the_way
@@ -151,7 +160,7 @@ module Positioning
           relative_record_or_id
         end
 
-        relative_record_scope = positioning_scope.where(primary_key => [relative_id])
+        relative_record_scope = positioning_scope.where(primary_key => [relative_id]).lock
 
         unless relative_record_scope.exists?
           raise Error.new, "relative `#{@column}` record must be in the same scope"
@@ -171,7 +180,10 @@ module Positioning
     end
 
     def last_position
-      (positioning_scope.maximum(@column) || 0) + (in_positioning_scope? ? 0 : 1)
+      # MAX() can't be combined with FOR UPDATE on PostgreSQL
+      maximum = positioning_scope.where.not(@column => nil).reorder(@column => :desc).lock.pick(@column)
+
+      (maximum || 0) + (in_positioning_scope? ? 0 : 1)
     end
 
     def scope_columns
@@ -211,7 +223,8 @@ module Positioning
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.where(primary_key => [@positioned.id]).exists?
+      @positioned.persisted? &&
+        positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil).lock.exists?
     end
 
     def positioning_scope_changed?
