@@ -1,6 +1,12 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- Require Active Record 7.2+ and Ruby 3.2+, matching what's tested. Apps on older versions will keep resolving to 0.4.8.
+
+## [0.4.8] - 2026-03-28
+
+- Support `belongs_to` scopes with composite foreign keys, including skipping repositioning when the records are destroyed via that association.
+- Only Rails 7.2 and later are tested from this release on.
 
 ## [0.4.7] - 2025-08-09
 
