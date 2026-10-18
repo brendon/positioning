@@ -1741,3 +1741,139 @@ class TestSTIPositioning < Minitest::Test
     end
   end
 end
+
+class TestScopeBehaviour < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_prior_and_subsequent_items_stay_within_their_scope
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    first_list.items.create name: "First Item"
+    second_item = first_list.items.create name: "Second Item"
+    third_item = second_list.items.create name: "Third Item"
+    fourth_item = second_list.items.create name: "Fourth Item"
+    fifth_item = second_list.items.create name: "Fifth Item"
+
+    assert_equal third_item, fourth_item.prior_position
+    assert_equal fifth_item, fourth_item.subsequent_position
+    assert_nil third_item.prior_position
+    assert_nil second_item.subsequent_position
+  end
+
+  def test_that_each_positioned_column_is_maintained_independently
+    list = List.create name: "List"
+    first_category = Category.create name: "First Category"
+    second_category = Category.create name: "Second Category"
+    first_item = CategorisedItem.create list: list, category: first_category, name: "First Item"
+    second_item = CategorisedItem.create list: list, category: second_category, name: "Second Item"
+    third_item = CategorisedItem.create list: list, category: first_category, name: "Third Item"
+
+    assert_equal [[1, 1], [2, 1], [3, 2]], [first_item, second_item, third_item].map { |item| [item.position, item.category_position] }
+
+    third_item.update category: second_category
+
+    assert_equal [[1, 1], [2, 1], [3, 2]],
+      [first_item, second_item, third_item].map { |item| item.reload.slice(:position, :category_position).values }
+
+    first_item.update position: :last
+
+    assert_equal [[3, 1], [1, 1], [2, 2]],
+      [first_item, second_item, third_item].map { |item| item.reload.slice(:position, :category_position).values }
+  end
+
+  def test_that_destroying_via_an_association_outside_the_scope_closes_the_gap
+    list = List.create name: "List"
+    first_category = Category.create name: "First Category"
+    second_category = Category.create name: "Second Category"
+    first_item = CategorisedItem.create list: list, category: first_category, name: "First Item"
+    CategorisedItem.create list: list, category: second_category, name: "Second Item"
+    third_item = CategorisedItem.create list: list, category: first_category, name: "Third Item"
+
+    second_category.destroy
+
+    assert_equal [[1, 1], [2, 2]], [first_item, third_item].map { |item| item.reload.slice(:position, :category_position).values }
+  end
+
+  def test_that_dup_clears_every_positioned_column
+    list = List.create name: "List"
+    category = Category.create name: "Category"
+    item = CategorisedItem.create list: list, category: category, name: "Item"
+
+    copy = item.dup
+
+    assert_nil copy.position
+    assert_nil copy.category_position
+  end
+
+  def test_that_polymorphic_scopes_are_distinguished_by_type
+    list = List.create id: 9001, name: "List"
+    blog = Blog.create id: 9001, name: "Blog"
+    first_entity = Entity.create includable: list, name: "First Entity"
+    second_entity = Entity.create includable: blog, name: "Second Entity"
+    third_entity = Entity.create includable: list, name: "Third Entity"
+
+    assert_equal [1, 1, 2], [first_entity, second_entity, third_entity].map { |entity| entity.reload.position }
+
+    first_entity.update includable: blog
+
+    assert_equal [2, 1, 1], [first_entity, second_entity, third_entity].map { |entity| entity.reload.position }
+  end
+
+  def test_that_destroying_a_polymorphic_parent_does_not_reposition_its_children
+    list = List.create name: "List"
+    list.entities.create name: "First Entity"
+    list.entities.create name: "Second Entity"
+
+    Positioning::Mechanisms.any_instance.expects(:contract).never
+
+    list.destroy
+  end
+
+  def test_that_a_column_scope_keeps_separate_lists
+    first_blog = Blog.create name: "First Blog", enabled: true
+    second_blog = Blog.create name: "Second Blog", enabled: false
+    third_blog = Blog.create name: "Third Blog", enabled: true
+
+    assert_equal [1, 1, 2], [first_blog, second_blog, third_blog].map { |blog| blog.reload.position }
+
+    first_blog.update enabled: false
+
+    assert_equal [2, 1, 1], [first_blog, second_blog, third_blog].map { |blog| blog.reload.position }
+  end
+
+  def test_that_a_nil_scope_is_a_list_of_its_own
+    first_root = Category.create name: "First Root"
+    second_root = Category.create name: "Second Root"
+    child = Category.create name: "Child", parent: first_root
+
+    assert_equal [1, 2, 1], [first_root, second_root, child].map { |category| category.reload.position }
+
+    second_root.update parent: first_root
+
+    assert_equal [1, 2, 1], [first_root, second_root, child].map { |category| category.reload.position }
+
+    child.update parent: nil
+
+    assert_equal [1, 1, 2], [first_root, second_root, child].map { |category| category.reload.position }
+  end
+
+  def test_that_records_without_an_optional_parent_form_a_list
+    blog = Blog.create name: "Blog"
+    first_post = Post.create name: "First Post"
+    second_post = Post.create name: "Second Post"
+    third_post = blog.posts.create name: "Third Post"
+
+    assert_equal [1, 2, 1], [first_post, second_post, third_post].map { |post| post.reload.position }
+
+    first_post.update blog: blog
+
+    assert_equal [2, 1, 1], [first_post, second_post, third_post].map { |post| post.reload.position }
+  end
+end
