@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Raise when `positioned` is called on an abstract class, as the error message already said.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
