@@ -6,6 +6,7 @@
 - Don't instantiate every record in a scope (or table) just to lock it.
 - Lock the scope's records when its `belongs_to` association is nil (e.g. the roots of a tree). Previously nothing was locked.
 - Fix deadlocks when records move between the same scopes in opposite directions at the same time.
+- Lock associated records `FOR NO KEY UPDATE` on PostgreSQL to avoid deadlocks with foreign key checks.
 
 ## [0.4.7] - 2025-08-09
 
