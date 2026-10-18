@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Raise when `positioned` is called on an abstract class, as the error message already said.
 
 ## [0.4.7] - 2025-08-09
