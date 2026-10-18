@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Add tests for behaviour that mutation testing showed was untested.
 
 ## [0.4.7] - 2025-08-09
