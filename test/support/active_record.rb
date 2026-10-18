@@ -61,6 +61,15 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :default_scope_items, [:list_id, :position], unique: true
 
+    create_table :archivable_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.datetime :archived_at
+      t.references :list, null: false
+    end
+
+    add_index :archivable_items, [:list_id, :archived_at, :position], unique: true
+
     create_table :composite_primary_key_items, primary_key: [:item_id, :account_id], force: true do |t|
       t.integer :item_id, null: false
       t.integer :account_id, null: false
