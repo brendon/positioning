@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Don't write anything when an assigned position doesn't change. `updated_at` is no longer bumped and `saved_change_to_position?` is false in that case.
 
 ## [0.4.7] - 2025-08-09
