@@ -96,4 +96,31 @@ class TestHealing < Minitest::Test
 
     assert_equal [1, 2, 3], [third_item.reload, first_item.reload, second_item.reload].map(&:position)
   end
+
+  def test_heal_locks_records_when_there_is_no_scope_association
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    Product.create name: "First Product"
+    Blog.create name: "First Blog"
+
+    assert_match(/FROM .products. .*FOR UPDATE/i, capture_sql { Product.heal_position_column! })
+    assert_match(/FROM .blogs. .*FOR UPDATE/i, capture_sql { Blog.heal_position_column! })
+  end
+
+  def test_heal_locks_records_when_the_scope_association_is_nil
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    Category.create name: "First Category"
+
+    assert_match(/FROM .categories. .*FOR UPDATE/i, capture_sql { Category.heal_position_column! })
+  end
+
+  private
+
+  def capture_sql
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { yield }
+    queries.join("\n")
+  end
 end
