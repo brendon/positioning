@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Fix scope changes for records hidden by, or partially selected by, a default scope, and when changing part of a composite primary key.
 
 ## [0.4.7] - 2025-08-09
