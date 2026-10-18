@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix healing raising a unique index violation with a custom order, or with existing zero or negative positions. Tied positions are now healed in primary key order.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
