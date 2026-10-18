@@ -8,6 +8,22 @@ database_configuration = ENV["CI"] ? "test/support/ci_database.yml" : "test/supp
 ActiveRecord::Base.configurations = YAML.safe_load(IO.read(database_configuration))
 ActiveRecord::Base.establish_connection(ENV["DB"].to_sym)
 
+if ENV["DB"] == "sqlite" && ActiveRecord.version < Gem::Version.new("8.0")
+  require "active_record/connection_adapters/sqlite3_adapter"
+
+  # Rails 8.0+ does this by default. Before that, a thread waiting for SQLite's
+  # write lock sleeps while holding the GVL, so the thread holding the lock can't
+  # finish and the waiting thread times out.
+  ActiveRecord::ConnectionAdapters::SQLite3Adapter.prepend(Module.new do
+    private
+
+    def configure_connection
+      super
+      @raw_connection.busy_handler_timeout = @config[:timeout]
+    end
+  end)
+end
+
 ActiveRecord::Migration.suppress_messages do
   ActiveRecord::Schema.define version: 0 do
     create_table :lists, force: true do |t|
