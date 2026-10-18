@@ -1,6 +1,8 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- Don't instantiate every record in a scope (or table) just to lock it.
+- Lock the scope's records when its `belongs_to` association is nil (e.g. the roots of a tree). Previously nothing was locked.
 
 ## [0.4.7] - 2025-08-09
 
