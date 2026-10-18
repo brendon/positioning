@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Fix `dup` not clearing positions, and `heal_*_column!` raising, on STI subclasses.
 
 ## [0.4.7] - 2025-08-09
