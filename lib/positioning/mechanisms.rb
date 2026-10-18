@@ -31,7 +31,10 @@ module Positioning
       solidify_position
       move_out_of_the_way
 
-      if positioning_scope_changed?
+      # A record without a position doesn't occupy a slot, so there's no gap to close
+      if position_was.nil?
+        expand(positioning_scope, position..)
+      elsif positioning_scope_changed?
         contract(positioning_scope_was, position_was..)
         expand(positioning_scope, position..)
       elsif position_was > position
@@ -42,11 +45,18 @@ module Positioning
     end
 
     def destroy_position
-      unless destroyed_via_positioning_scope?
+      if destroyed_via_positioning_scope?
+        yield
+      else
         lock_positioning_scope!
 
-        move_out_of_the_way
-        contract(positioning_scope, (position_was + 1)..)
+        position_was # Memoize the original position while the row still exists
+
+        yield
+
+        # Only close the gap once the row is gone. A later before_destroy callback can halt the destroy,
+        # and inside an outer transaction that rollback is swallowed.
+        contract(positioning_scope, (position_was + 1)..) if @positioned.destroyed? && !position_was.nil?
       end
     end
 
@@ -76,8 +86,9 @@ module Positioning
       end
     end
 
+    # The record's row as it is in the database, regardless of default scopes or in-memory key changes
     def record_scope
-      base_class.where primary_key => [@positioned.id]
+      base_class.unscoped.where primary_key => [@positioned.id_in_database]
     end
 
     def position
@@ -97,7 +108,9 @@ module Positioning
     end
 
     def position_was
-      @position_was ||= record_scope.pick(@column)
+      return @position_was if defined?(@position_was)
+
+      @position_was = record_scope.pick(@column)
     end
 
     def move_out_of_the_way
@@ -211,7 +224,8 @@ module Positioning
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.where(primary_key => [@positioned.id]).exists?
+      @positioned.persisted? &&
+        positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil).exists?
     end
 
     def positioning_scope_changed?
