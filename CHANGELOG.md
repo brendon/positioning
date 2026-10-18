@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Require Active Record 7.2+ and Ruby 3.2+, matching what's tested. Apps on older versions will keep resolving to 0.4.8.
 
 ## [0.4.8] - 2026-03-28
