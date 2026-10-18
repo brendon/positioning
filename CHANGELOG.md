@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
 - Fix scope changes for records hidden by, or partially selected by, a default scope, and when changing part of a composite primary key.
 - Fix lists being corrupted when a record with a NULL position (or whose row is already gone) is updated or destroyed.
 
