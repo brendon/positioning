@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix scope changes for records hidden by, or partially selected by, a default scope, and when changing part of a composite primary key.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
