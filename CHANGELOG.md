@@ -2,6 +2,7 @@
 
 - Fix scope changes for records hidden by, or partially selected by, a default scope, and when changing part of a composite primary key.
 - Fix lists being corrupted when a record with a NULL position (or whose row is already gone) is updated or destroyed.
+- Fix a halted destroy (e.g. `dependent: :restrict_with_error`) inside a transaction leaving the list corrupted.
 
 ## [0.4.7] - 2025-08-09
 
