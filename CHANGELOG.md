@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- `belongs_to` scopes are now recognised even when declared after `positioned` (e.g. in a concern included later).
 
 ## [0.4.7] - 2025-08-09
 
