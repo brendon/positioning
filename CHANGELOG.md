@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- Fix healing raising a unique index violation with a custom order, or with existing zero or negative positions. Tied positions are now healed in primary key order.
 
 ## [0.4.7] - 2025-08-09
 
