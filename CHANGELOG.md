@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- Raise when `positioned` is called on an abstract class, as the error message already said.
 - Fix `dup` not clearing positions, and `heal_*_column!` raising, on STI subclasses.
 - Fix healing raising a unique index violation with a custom order, or with existing zero or negative positions. Tied positions are now healed in primary key order.
 

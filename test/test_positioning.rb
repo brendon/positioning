@@ -642,6 +642,14 @@ class TestPositioningScopes < Minitest::Test
     end
   end
 
+  def test_that_an_error_is_raised_when_initialising_on_an_abstract_class
+    abstract_class = Class.new(ActiveRecord::Base) { self.abstract_class = true }
+
+    assert_raises(Positioning::Error) do
+      abstract_class.send :positioned
+    end
+  end
+
   def test_that_the_default_list_scope_works
     list = List.create name: "First List"
     first_item = list.items.create name: "First Item"
