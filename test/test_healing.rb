@@ -46,6 +46,55 @@ class TestHealing < Minitest::Test
     assert_equal [1, 2, 3], [sixth_item.reload, fourth_item.reload, fifth_item.reload].map(&:position)
   end
 
+  def test_heal_position_with_a_custom_order_and_a_unique_index
+    list = List.create name: "List"
+
+    first_item = list.items.create name: "A"
+    second_item = list.items.create name: "B"
+    third_item = list.items.create name: "C"
+
+    Item.heal_position_column! name: :desc
+
+    assert_equal [1, 2, 3], [third_item.reload, second_item.reload, first_item.reload].map(&:position)
+  end
+
+  def test_heal_position_with_a_zero_position_and_a_unique_index
+    first_product = Product.create name: "First Product"
+    second_product = Product.create name: "Second Product"
+    third_product = Product.create name: "Third Product"
+
+    third_product.update_columns position: 0
+
+    Product.heal_position_column!
+
+    assert_equal [1, 2, 3], [third_product.reload, first_product.reload, second_product.reload].map(&:position)
+  end
+
+  def test_heal_position_with_a_composite_primary_key_and_a_unique_index
+    list = List.create name: "List"
+
+    first_item = list.composite_primary_key_items.create item_id: 1, account_id: 1, name: "A"
+    second_item = list.composite_primary_key_items.create item_id: 2, account_id: 2, name: "B"
+
+    CompositePrimaryKeyItem.heal_position_column! name: :desc
+
+    assert_equal [1, 2], [second_item.reload, first_item.reload].map(&:position)
+  end
+
+  def test_heal_position_breaks_ties_by_primary_key
+    list = List.create name: "List"
+
+    third_item = list.new_items.create id: 30, name: "Third Item"
+    second_item = list.new_items.create id: 20, name: "Second Item"
+    first_item = list.new_items.create id: 10, name: "First Item"
+
+    NewItem.where(list: list).update_all position: 1
+
+    NewItem.heal_position_column!
+
+    assert_equal [1, 2, 3], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
+  end
+
   def test_heal_position_on_a_tree
     first_category = Category.create name: "First Category"
     second_category = Category.create name: "Second Category"
@@ -79,6 +128,20 @@ class TestHealing < Minitest::Test
     Product.heal_position_column!
 
     assert_equal [1, 2, 3], [third_product.reload, second_product.reload, first_product.reload].map(&:position)
+  end
+
+  def test_heal_position_from_an_sti_subclass
+    list = List.create name: "List"
+
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    student.update_columns position: 10
+    teacher.update_columns position: 5
+
+    Author::Student.heal_position_column!
+
+    assert_equal [1, 2], [teacher.reload, student.reload].map(&:position)
   end
 
   def test_heal_position_with_default_scope

@@ -760,6 +760,19 @@ class TestDuplication < Minitest::Test
 
     assert_equal [1, 2, 3], [fourth_item.reload, fifth_item.reload, sixth_item.reload].map(&:position)
   end
+
+  def test_that_dup_clears_position_on_sti_subclasses
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    copy = student.dup
+    assert_nil copy.position
+
+    copy.save
+
+    assert_equal [1, 2, 3], [student.reload, teacher.reload, copy.reload].map(&:position)
+  end
 end
 
 class TestPositioning < Minitest::Test

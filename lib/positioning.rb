@@ -56,7 +56,7 @@ module Positioning
           before_destroy { Mechanisms.new(self, column).destroy_position }
 
           define_singleton_method(:"heal_#{column}_column!") do |order = column|
-            Healer.new(self, column, order).heal
+            Healer.new(base_class, column, order).heal
           end
         end
       end
@@ -65,7 +65,7 @@ module Positioning
     def initialize_dup(other)
       super
 
-      self.class.positioning_columns.keys.each do |positioning_column|
+      self.class.base_class.positioning_columns.keys.each do |positioning_column|
         send :"#{positioning_column}=", nil
       end
     end
