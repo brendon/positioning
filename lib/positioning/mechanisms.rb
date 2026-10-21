@@ -16,6 +16,9 @@ module Positioning
     def create_position
       lock_positioning_scope!
 
+      # A column default isn't a requested position. Only an assigned value is.
+      clear_position unless position_changed?
+
       solidify_position
 
       expand(positioning_scope, position..)

@@ -725,6 +725,34 @@ class TestPositioningColumns < Minitest::Test
   end
 end
 
+class TestColumnDefaults < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_a_column_default_does_not_determine_the_position
+    list = List.create name: "List"
+    first_item = DefaultPositionItem.create list: list, name: "First Item"
+    second_item = DefaultPositionItem.create list: list, name: "Second Item"
+    third_item = DefaultPositionItem.create list: list, name: "Third Item"
+
+    assert_equal [1, 2, 3], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
+  end
+
+  def test_that_an_explicit_position_equal_to_the_column_default_is_respected
+    list = List.create name: "List"
+    first_item = DefaultPositionItem.create list: list, name: "First Item"
+    second_item = DefaultPositionItem.create list: list, name: "Second Item", position: 0
+
+    assert_equal [1, 2], [second_item.reload, first_item.reload].map(&:position)
+  end
+end
+
 class TestDuplication < Minitest::Test
   include Minitest::Hooks
 
