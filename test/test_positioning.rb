@@ -642,6 +642,14 @@ class TestPositioningScopes < Minitest::Test
     end
   end
 
+  def test_that_an_error_is_raised_when_initialising_on_an_abstract_class
+    abstract_class = Class.new(ActiveRecord::Base) { self.abstract_class = true }
+
+    assert_raises(Positioning::Error) do
+      abstract_class.send :positioned
+    end
+  end
+
   def test_that_the_default_list_scope_works
     list = List.create name: "First List"
     first_item = list.items.create name: "First Item"
@@ -766,6 +774,34 @@ class TestPositioningColumns < Minitest::Test
   end
 end
 
+class TestColumnDefaults < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_a_column_default_does_not_determine_the_position
+    list = List.create name: "List"
+    first_item = DefaultPositionItem.create list: list, name: "First Item"
+    second_item = DefaultPositionItem.create list: list, name: "Second Item"
+    third_item = DefaultPositionItem.create list: list, name: "Third Item"
+
+    assert_equal [1, 2, 3], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
+  end
+
+  def test_that_an_explicit_position_equal_to_the_column_default_is_respected
+    list = List.create name: "List"
+    first_item = DefaultPositionItem.create list: list, name: "First Item"
+    second_item = DefaultPositionItem.create list: list, name: "Second Item", position: 0
+
+    assert_equal [1, 2], [second_item.reload, first_item.reload].map(&:position)
+  end
+end
+
 class TestDuplication < Minitest::Test
   include Minitest::Hooks
 
@@ -800,6 +836,19 @@ class TestDuplication < Minitest::Test
     second_list.items = fourth_item, fifth_item, sixth_item
 
     assert_equal [1, 2, 3], [fourth_item.reload, fifth_item.reload, sixth_item.reload].map(&:position)
+  end
+
+  def test_that_dup_clears_position_on_sti_subclasses
+    list = List.create name: "List"
+    student = list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    copy = student.dup
+    assert_nil copy.position
+
+    copy.save
+
+    assert_equal [1, 2, 3], [student.reload, teacher.reload, copy.reload].map(&:position)
   end
 end
 
