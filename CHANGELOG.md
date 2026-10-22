@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).
+- Fix scope changes for records hidden by, or partially selected by, a default scope, and when changing part of a composite primary key.
 - A default on the position column no longer places new records at the start of the list.
 - Raise when `positioned` is called on an abstract class, as the error message already said.
 - Fix `dup` not clearing positions, and `heal_*_column!` raising, on STI subclasses.

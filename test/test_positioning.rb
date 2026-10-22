@@ -694,6 +694,55 @@ class TestPositioningScopes < Minitest::Test
   end
 end
 
+class TestRecordScope < Minitest::Test
+  include Minitest::Hooks
+
+  def around
+    ActiveRecord::Base.transaction do
+      super
+      raise ActiveRecord::Rollback
+    end
+  end
+
+  def test_that_a_default_scope_select_does_not_prevent_a_scope_change
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    first_list.default_scope_items.create name: "First Item"
+    second_item = first_list.default_scope_items.create name: "Second Item"
+
+    second_item = DefaultScopeItem.unscoped.find(second_item.id)
+    second_item.update list: second_list
+
+    assert_equal [[second_list.id, 1]], DefaultScopeItem.unscoped.where(id: second_item.id).pluck(:list_id, :position)
+  end
+
+  def test_that_a_record_hidden_by_a_default_scope_can_change_scope
+    list = List.create name: "List"
+    first_item = ArchivableItem.create list: list, name: "First Item"
+    second_item = ArchivableItem.create list: list, name: "Second Item"
+    third_item = ArchivableItem.create list: list, name: "Third Item"
+
+    second_item.update archived_at: Time.current
+    assert_equal [1, 2], [first_item.reload, third_item.reload].map(&:position)
+
+    second_item = ArchivableItem.unscoped.find(second_item.id)
+    second_item.update archived_at: nil
+
+    assert_equal [1, 2, 3], [first_item.reload, third_item.reload, second_item.reload].map(&:position)
+  end
+
+  def test_that_a_primary_key_change_does_not_lose_track_of_the_record
+    list = List.create name: "List"
+    first_item = list.composite_primary_key_items.create item_id: 1, account_id: 1, name: "First Item"
+    second_item = list.composite_primary_key_items.create item_id: 2, account_id: 2, name: "Second Item"
+    third_item = list.composite_primary_key_items.create item_id: 3, account_id: 3, name: "Third Item"
+
+    first_item.update account_id: 4, position: 3
+
+    assert_equal [1, 2, 3], [second_item.reload, third_item.reload, first_item.reload].map(&:position)
+  end
+end
+
 class TestPositioningColumns < Minitest::Test
   include Minitest::Hooks
 

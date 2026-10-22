@@ -79,8 +79,9 @@ module Positioning
       end
     end
 
+    # The record's row as it is in the database, regardless of default scopes or in-memory key changes
     def record_scope
-      base_class.where primary_key => [@positioned.id]
+      base_class.unscoped.where primary_key => [@positioned.id_in_database]
     end
 
     def position
@@ -214,7 +215,7 @@ module Positioning
     end
 
     def in_positioning_scope?
-      @positioned.persisted? && positioning_scope.where(primary_key => [@positioned.id]).exists?
+      @positioned.persisted? && positioning_scope.where(primary_key => [@positioned.id_in_database]).exists?
     end
 
     def positioning_scope_changed?
