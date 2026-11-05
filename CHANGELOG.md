@@ -7,6 +7,7 @@
 - Fix `dup` not clearing positions, and `heal_*_column!` raising, on STI subclasses.
 - Fix healing raising a unique index violation with a custom order, or with existing zero or negative positions. Tied positions are now healed in primary key order.
 - Fix lists being corrupted when a record with a NULL position (or whose row is already gone) is updated or destroyed.
+- Fix duplicate positions (or unique index violations) on MySQL when the list changes after the transaction's first read.
 
 ## [0.4.7] - 2025-08-09
 
