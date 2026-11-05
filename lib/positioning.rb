@@ -10,8 +10,74 @@ module Positioning
 
   RelativePosition = Struct.new(:before, :after, keyword_init: true)
 
+  # Under MySQL's default REPEATABLE READ, a transaction's first plain read fixes the snapshot that its later reads
+  # see. Validations, callbacks and attribute assignment can all read before we lock the scope, which would hide
+  # changes committed while we waited for the lock. So a save that begins its own transaction runs at READ COMMITTED.
+  # An open transaction's level can't be changed (Rails opens one around `association.create`, for example), so a save
+  # that joins one takes the lock before anything else in the save can read.
+  module Isolation
+    def self.mysql?(connection)
+      connection.adapter_name.match?(/mysql|trilogy/i)
+    end
+
+    def self.level_for(model, connection)
+      return if connection.transaction_open? || !mysql?(connection)
+
+      # The app chose a level for this block with ActiveRecord.with_transaction_isolation_level (Rails 8.1+)
+      return if ActiveRecord.try(:default_transaction_isolation_level)
+
+      model.positioning_isolation
+    end
+
+    def with_transaction_returning_status
+      self.class.connection_pool.with_connection do |connection|
+        level = Isolation.level_for(self.class, connection)
+        next super unless level
+
+        status = nil
+        connection.transaction(isolation: level) do
+          status = super()
+          # Joining swallows the inner ActiveRecord::Rollback, so the real transaction needs telling too
+          raise ActiveRecord::Rollback unless status
+        end
+        status
+      end
+    end
+
+    def save(**)
+      lock_if_joining(:lock_for_save) { super }
+    end
+
+    def save!(**)
+      lock_if_joining(:lock_for_save) { super }
+    end
+
+    def destroy
+      lock_if_joining(:lock_for_destroy) { super }
+    end
+
+    private
+
+    def lock_if_joining(lock)
+      self.class.connection_pool.with_connection do |connection|
+        if connection.transaction_open? && Isolation.mysql?(connection)
+          self.class.base_class.positioning_columns.each_key do |column|
+            Mechanisms.new(self, column).send(lock)
+          end
+        end
+
+        yield
+      end
+    end
+  end
+
   module Behaviour
     extend ActiveSupport::Concern
+
+    included do
+      class_attribute :positioning_isolation, instance_accessor: false, instance_predicate: false,
+        default: :read_committed
+    end
 
     class_methods do
       def positioning_columns
@@ -50,6 +116,8 @@ module Positioning
             send :"#{column}_will_change!"
             super(position)
           end
+
+          include Isolation
 
           before_create { Mechanisms.new(self, column).create_position }
           before_update { Mechanisms.new(self, column).update_position }

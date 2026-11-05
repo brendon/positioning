@@ -56,6 +56,14 @@ module Positioning
       end
     end
 
+    def lock_for_save
+      lock_positioning_scope! if @positioned.new_record? || positioning_scope_changed? || position_changed?
+    end
+
+    def lock_for_destroy
+      lock_positioning_scope! unless destroyed_via_positioning_scope?
+    end
+
     private
 
     def base_class

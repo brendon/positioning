@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- BREAKING CHANGE: On MySQL, a save or destroy of a positioned record that begins its own transaction now runs at READ COMMITTED. This fixes duplicate positions (or unique index violations) when anything reads before the scope lock, such as a validation, a callback or nested attributes. It applies to every save on the model, along with its callbacks and any records it autosaves. A save that joins an open transaction, such as `list.items.create`, instead takes the lock as soon as it begins. If you rely on REPEATABLE READ or gap locks, opt out with `positioning_isolation = nil`. See the Concurrency section of the README.
 - Scope locks are now taken by key without loading the associated record, and ignore default scopes, so they no longer run a default scope's preloads or miss the rows it hides.
 
 ## [0.4.9] - 2026-11-06

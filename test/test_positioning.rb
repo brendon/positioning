@@ -108,6 +108,291 @@ class TestTransactionSafety < Minitest::Test
 
     list.destroy
   end
+
+  def test_no_duplicate_row_values_when_the_list_changes_after_a_save_begins
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    ids = ["A", "B", "C", "D", "E"].map { |name| list.authors.create(name: name, type: "Author::Student").id }
+    student = Author.find(ids[2])
+
+    # A validation that reads, as a required belongs_to's does
+    def student.valid?(*)
+      Author.where(list_id: list_id).exists?
+      super
+    end
+
+    concurrent = -> { list.authors.create name: "New", type: "Author::Student", position: 1 }
+    after_first_query(concurrent) { student.update position: 5 }
+
+    assert_includes [
+      ["New", "A", "B", "D", "C", "E"],
+      ["New", "A", "B", "D", "E", "C"]
+    ], list.authors.pluck(:name)
+    assert_equal (1..6).to_a, list.authors.pluck(:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_the_list_changes_after_a_destroy_begins
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    blogs = ["A", "B", "C", "D", "E"].map { |name| Blog.create name: name }
+    blog = Blog.find(blogs[2].id)
+
+    # Destroying its posts reads before our callback runs
+    blog.posts.create name: "Post"
+
+    concurrent = -> { Blog.find(blogs[0].id).update position: :last }
+    after_first_query(concurrent) { blog.destroy }
+
+    assert_equal [[1, "B"], [2, "D"], [3, "E"], [4, "A"]], Blog.pluck(:position, :name)
+
+    Blog.destroy_all
+  end
+
+  def test_no_duplicate_row_values_when_the_list_changes_during_attribute_assignment
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    ids = ["A", "B", "C", "D", "E"].map { |name| list.authors.create(name: name, type: "Author::Student").id }
+    student = Author.find(ids[2])
+
+    # Assignment that reads, as nested attributes do. It happens inside update's transaction.
+    def student.assign_attributes(*)
+      Author.where(list_id: list_id).exists?
+      super
+    end
+
+    concurrent = -> { list.authors.create name: "New", type: "Author::Student", position: 1 }
+    after_first_query(concurrent) { student.update position: 5 }
+
+    assert_includes [
+      ["New", "A", "B", "D", "C", "E"],
+      ["New", "A", "B", "D", "E", "C"]
+    ], list.authors.pluck(:name)
+    assert_equal (1..6).to_a, list.authors.pluck(:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_creating_through_an_association_and_a_validation_reads
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    ["A", "B", "C"].each { |name| list.authors.create(name: name, type: "Author::Student") }
+
+    concurrent = -> { list.authors.create name: "New", type: "Author::Student", position: 1 }
+    after_first_query(concurrent) do
+      # Rails opens a transaction around this, before the save begins
+      list.authors.create(name: "D", type: "Author::Student") do |author|
+        def author.valid?(*)
+          Author.where(list_id: list_id).exists?
+          super
+        end
+      end
+    end
+
+    assert_equal ["New", "A", "B", "C", "D"], list.authors.pluck(:name)
+    assert_equal (1..5).to_a, list.authors.pluck(:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_when_saving_first_in_another_models_transaction
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    ids = ["A", "B", "C", "D", "E"].map { |name| list.authors.create(name: name, type: "Author::Student").id }
+    student = Author.find(ids[2])
+
+    # A validation that reads, as a required belongs_to's does
+    def student.valid?(*)
+      Author.where(list_id: list_id).exists?
+      super
+    end
+
+    concurrent = -> { list.authors.create name: "New", type: "Author::Student", position: 1 }
+    after_first_query(concurrent) { List.transaction { student.update position: 5 } }
+
+    assert_includes [
+      ["New", "A", "B", "D", "C", "E"],
+      ["New", "A", "B", "D", "E", "C"]
+    ], list.authors.pluck(:name)
+    assert_equal (1..6).to_a, list.authors.pluck(:position)
+
+    list.destroy
+  end
+
+  def test_no_duplicate_row_values_in_a_transaction_opened_at_read_committed
+    skip "SQLite only supports read_uncommitted" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    ids = ["A", "B", "C", "D", "E"].map { |name| list.authors.create(name: name, type: "Author::Student").id }
+    student = Author.find(ids[2])
+
+    concurrent = -> { list.authors.create name: "New", type: "Author::Student", position: 1 }
+    after_first_query(concurrent) do
+      Author.transaction(isolation: :read_committed) do
+        Author.where(list_id: list.id).exists?
+        student.update position: 5
+      end
+    end
+
+    assert_includes [
+      ["New", "A", "B", "D", "C", "E"],
+      ["New", "A", "B", "D", "E", "C"]
+    ], list.authors.pluck(:name)
+    assert_equal (1..6).to_a, list.authors.pluck(:position)
+
+    list.destroy
+  end
+
+  private
+
+  # Runs `concurrent` in another connection just after the block's first query, as another request would. It's
+  # given a moment to finish, but may need to wait for a lock the block's transaction holds.
+  def after_first_query(concurrent)
+    thread = Thread.current
+    other_thread = nil
+
+    run_concurrent = lambda do |*, payload|
+      next if Thread.current != thread || other_thread || ["SCHEMA", "TRANSACTION"].include?(payload[:name])
+
+      other_thread = Thread.new { ActiveRecord::Base.connection_pool.with_connection { concurrent.call } }
+      other_thread.join(0.5)
+    end
+
+    ActiveSupport::Notifications.subscribed(run_concurrent, "sql.active_record") { yield }
+  ensure
+    other_thread&.join
+  end
+end
+
+class TestSaveIsolation < Minitest::Test
+  def setup
+    @list = List.create name: "List"
+    @ids = ["A", "B", "C"].map { |name| @list.authors.create(name: name, type: "Author::Student").id }
+    @student = Author.find(@ids[2])
+  end
+
+  def teardown
+    @list.destroy
+  end
+
+  def test_saves_that_begin_a_transaction_run_at_read_committed_on_mysql
+    expected = (ENV["DB"] == "mysql") ? ["READ COMMITTED"] : []
+
+    assert_equal expected, isolation_levels { @student.update position: 1 }
+    assert_equal expected, isolation_levels { @student.update! position: 2 }
+
+    @student.position = 3
+    assert_equal expected, isolation_levels { @student.save }
+
+    @student.position = 1
+    assert_equal expected, isolation_levels { @student.save! }
+
+    assert_equal expected, isolation_levels { Author.create! list: @list, name: "D", type: "Author::Student" }
+    assert_equal expected, isolation_levels { @student.destroy }
+  end
+
+  def test_saves_that_join_a_transaction_keep_its_level
+    assert_empty isolation_levels { Author.transaction { @student.update position: 1 } }
+    assert_equal ["C", "A", "B"], @list.authors.pluck(:name)
+  end
+
+  def test_creating_through_an_association_keeps_the_level_of_the_transaction_rails_opens
+    assert_empty isolation_levels { @list.authors.create! name: "D", type: "Author::Student" }
+    assert_equal ["A", "B", "C", "D"], @list.authors.pluck(:name)
+  end
+
+  def test_a_model_and_its_sti_subclasses_can_turn_it_off
+    Author.positioning_isolation = nil
+
+    assert_empty isolation_levels { @student.update position: 1 }
+    assert_equal ["C", "A", "B"], @list.authors.pluck(:name)
+  ensure
+    Author.positioning_isolation = :read_committed
+  end
+
+  def test_an_app_can_turn_it_off
+    ActiveRecord::Base.positioning_isolation = nil
+
+    assert_empty isolation_levels { Blog.create name: "Blog" }
+  ensure
+    ActiveRecord::Base.positioning_isolation = :read_committed
+    Blog.destroy_all
+  end
+
+  def test_a_level_chosen_by_the_app_takes_precedence
+    skip "Requires Rails 8.1" unless ActiveRecord.respond_to?(:with_transaction_isolation_level)
+    skip "SQLite only supports read_uncommitted" if ENV["DB"] == "sqlite"
+
+    levels = isolation_levels do
+      ActiveRecord.with_transaction_isolation_level(:repeatable_read) { @student.update position: 1 }
+    end
+
+    assert_equal ["REPEATABLE READ"], levels
+    assert_equal ["C", "A", "B"], @list.authors.pluck(:name)
+  end
+
+  def test_rolling_back_an_update_restores_the_list
+    student = @student
+
+    def student._run_save_callbacks
+      super
+      raise ActiveRecord::Rollback
+    end
+
+    refute student.update(position: 1)
+    assert_equal ["A", "B", "C"], @list.authors.pluck(:name)
+    assert_equal [1, 2, 3], @list.authors.pluck(:position)
+  end
+
+  def test_rolling_back_a_create_restores_the_list_and_the_record
+    author = @list.authors.new name: "New", type: "Author::Student", position: 1
+
+    def author._run_save_callbacks
+      super
+      raise ActiveRecord::Rollback
+    end
+
+    refute author.save
+    assert author.new_record?
+    assert_nil author.id
+    assert_equal ["A", "B", "C"], @list.authors.pluck(:name)
+    assert_equal [1, 2, 3], @list.authors.pluck(:position)
+  end
+
+  def test_rolling_back_a_destroy_restores_the_list_and_the_record
+    student = Author.find(@ids[0])
+
+    def student._run_destroy_callbacks
+      super
+      raise ActiveRecord::Rollback
+    end
+
+    refute student.destroy
+    refute student.destroyed?
+    assert_equal ["A", "B", "C"], @list.authors.pluck(:name)
+    assert_equal [1, 2, 3], @list.authors.pluck(:position)
+  end
+
+  private
+
+  def isolation_levels
+    levels = []
+    subscriber = lambda do |*, payload|
+      level = payload[:sql][/ISOLATION LEVEL ([A-Z ]+)/, 1]
+      levels << level if level
+    end
+
+    ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") { yield }
+
+    levels
+  end
 end
 
 class TestPositioningMechanisms < Minitest::Test

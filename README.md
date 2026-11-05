@@ -286,6 +286,30 @@ The queries that this gem runs (especially those that seek the next position int
 
 **Please Note SQLite Users:** Row locking isn't supported by SQLite. Since writes are non-concurrent by default, the worst you'll probably see are errors about the database being locked under high load.
 
+### MySQL and transaction isolation
+
+Under MySQL's default isolation level (REPEATABLE READ) a transaction's first read fixes the snapshot that its later reads see. Anything that reads before we take the lock (a validation, a callback, nested attributes) could hide changes committed while we waited for it, which leads to duplicate positions or unique index violations. PostgreSQL's default isn't affected, and SQLite doesn't allow concurrent writers.
+
+So on MySQL, when a save or destroy of a positioned record begins a transaction, that transaction runs at READ COMMITTED. There are a few things to be aware of:
+
+- This applies to every save on the model, not just those that change a position, and to everything in that transaction: its callbacks and any records it autosaves. Reading the same row twice in a callback can now give different results, and `FOR UPDATE` no longer stops other transactions inserting into the gaps between the rows it locks.
+- An open transaction's level can't be changed, so a save inside one runs at that transaction's level. That includes `list.items.create` and `list.items << item`, as Rails opens a transaction around them. We lock as soon as such a save begins, but that can't help if the transaction has already read, or if a parent is autosaving the record and has already validated it. In those cases, open the transaction yourself with `transaction(isolation: :read_committed)`.
+- A level you've chosen with `ActiveRecord.with_transaction_isolation_level` (Rails 8.1+) takes precedence.
+- This has no effect inside transactional tests, as they hold a transaction open. Set `use_transactional_tests = false` to exercise it.
+- MySQL needs `binlog_format` to be `ROW` (the default) or `MIXED` for writes at this level.
+
+You can turn this off, but a read before the lock can then lead to duplicate positions again:
+
+```ruby
+# For the whole app, in an initializer
+ActiveRecord::Base.positioning_isolation = nil
+
+# For one model
+class Item < ApplicationRecord
+  self.positioning_isolation = nil
+end
+```
+
 If you have any concerns or improvements please file a GitHub issue.
 
 ## Development
