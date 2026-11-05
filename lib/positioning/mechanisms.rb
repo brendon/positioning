@@ -56,6 +56,14 @@ module Positioning
       end
     end
 
+    def lock_for_save
+      lock_positioning_scope! if @positioned.new_record? || positioning_scope_changed? || position_changed?
+    end
+
+    def lock_for_destroy
+      lock_positioning_scope! unless destroyed_via_positioning_scope?
+    end
+
     private
 
     def base_class
@@ -196,22 +204,37 @@ module Positioning
     end
 
     def lock_positioning_scope!
+      if @positioned.persisted? && positioning_scope_changed?
+        lock_scope scope_columns.index_with { |scope_column| @positioned.attribute_in_database(scope_column) }
+      end
+
+      lock_scope @positioned.slice(*scope_columns)
+    end
+
+    # Lock by key, without reading anything first. On MySQL a transaction's first plain read fixes its snapshot,
+    # which would hide changes committed while we waited for the lock. Default scopes are ignored so that they
+    # can't hide a row from the lock or preload anything.
+    def lock_scope(scope_attributes)
       if scope_associations.present?
         scope_associations.each do |scope_association|
-          if @positioned.persisted? && positioning_scope_changed?
-            associated_record = record_scope.first.send(scope_association)
-            associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+          reflection = base_class.reflect_on_association(scope_association)
+          key = scope_attributes.values_at(*Array(reflection.foreign_key))
+
+          klass = if reflection.polymorphic?
+            type = scope_attributes[reflection.foreign_type]
+            base_class.polymorphic_class_for(type) if type
+          else
+            reflection.klass
           end
 
-          associated_record = @positioned.send(scope_association)
-          associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+          if klass && key.none?(&:nil?)
+            klass.base_class.unscoped.where(Array(reflection.association_primary_key(klass)).zip(key).to_h).lock.ids
+          end
         end
       else
-        if @positioned.persisted? && positioning_scope_changed?
-          positioning_scope_was.lock.all.load
-        end
-
-        positioning_scope.lock.all.load
+        # Whole rows, as selecting only ids lets MySQL lock through a covering index on the position column. A
+        # transaction queued there would block our own position writes into the gap before it, and deadlock.
+        base_class.unscoped.where(scope_attributes).lock.all.load
       end
     end
 
