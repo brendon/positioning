@@ -79,6 +79,36 @@ class TestTransactionSafety < Minitest::Test
     list.destroy
   end
 
+  def test_no_duplicate_row_values_when_updating_after_a_read
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    students = []
+
+    ["A", "B", "C", "D", "E"].each do |name|
+      students << list.authors.create(name: name, type: "Author::Student")
+    end
+
+    ActiveRecord::Base.transaction do
+      # Any earlier read in the transaction fixes MySQL's REPEATABLE READ snapshot
+      list.authors.count
+
+      Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do
+          list.authors.create(name: "New", type: "Author::Student", position: 1)
+        end
+      end.join
+
+      students[2].update(position: 5)
+    end
+
+    assert_equal [[1, "New"], [2, "A"], [3, "B"], [4, "D"], [5, "C"], [6, "E"]], list.authors.pluck(:position, :name)
+
+    list.destroy
+  end
+
   def test_no_duplicate_row_values_when_destroying
     ActiveRecord::Base.connection_handler.clear_all_connections!
 

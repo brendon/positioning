@@ -76,6 +76,10 @@ module Positioning
       base_class.primary_key
     end
 
+    def postgresql?
+      base_class.connection_db_config.adapter.to_s.start_with?("postg")
+    end
+
     def quoted_column
       with_connection do |connection|
         connection.quote_table_name_for_assignment base_class.table_name, @column
@@ -103,10 +107,12 @@ module Positioning
       @positioned.send :"#{@column}_changed?"
     end
 
+    # A locking read, so MySQL's REPEATABLE READ can't return a stale position (we're about to update this row
+    # anyway). PostgreSQL's reads are already current, and there FOR UPDATE could block foreign key checks.
     def position_was
       return @position_was if defined?(@position_was)
 
-      @position_was = record_scope.pick(@column)
+      @position_was = record_scope.lock(!postgresql?).pick(@column)
     end
 
     def move_out_of_the_way
