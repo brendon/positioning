@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Scope locks are now taken by key without loading the associated record, and ignore default scopes, so they no longer run a default scope's preloads or miss the rows it hides.
+
 ## [0.4.9] - 2026-11-06
 
 - Fix the healer not locking scopes without a `belongs_to` association (or with a nil one).

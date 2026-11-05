@@ -453,7 +453,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    List.expects(:lock).once.returns(List)
+    List.expects(:unscoped).once.returns(List)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -465,7 +465,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    List.expects(:lock).twice.returns(List)
+    List.expects(:unscoped).twice.returns(List)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -502,7 +502,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(second_post, :position)
 
-    Blog.expects(:lock).once.returns(Blog)
+    Blog.expects(:unscoped).once.returns(Blog)
     mechanisms.send(:lock_positioning_scope!)
   end
 
