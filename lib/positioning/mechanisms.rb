@@ -114,14 +114,17 @@ module Positioning
       record_scope.update_all @column => 0
     end
 
+    # Skip the second query if nothing moved, as MySQL would still lock the scope's first row to find no matches
     def expand(scope, range)
-      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      if scope.where(@column => range).update_all("#{quoted_column} = #{quoted_column} * -1").positive?
+        scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"
+      end
     end
 
     def contract(scope, range)
-      scope.where(@column => range).update_all "#{quoted_column} = #{quoted_column} * -1"
-      scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      if scope.where(@column => range).update_all("#{quoted_column} = #{quoted_column} * -1").positive?
+        scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 - 1"
+      end
     end
 
     def solidify_position

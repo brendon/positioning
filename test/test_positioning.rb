@@ -108,6 +108,45 @@ class TestTransactionSafety < Minitest::Test
 
     list.destroy
   end
+
+  def test_appending_does_not_wait_for_a_lock_on_the_first_item
+    skip "Tests MySQL's locking" unless ENV["DB"] == "mysql"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    first_item = list.items.create name: "First"
+    locked = Queue.new
+    release = Queue.new
+
+    holder = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        Item.transaction do
+          Item.lock.find(first_item.id)
+          locked << true
+          release.pop
+        end
+      end
+    end
+
+    locked.pop
+
+    begin
+      ActiveRecord::Base.connection_pool.with_connection do |connection|
+        connection.execute "SET SESSION innodb_lock_wait_timeout = 1"
+        list.items.create name: "Last"
+      ensure
+        connection.execute "SET SESSION innodb_lock_wait_timeout = DEFAULT"
+      end
+    ensure
+      release << true
+      holder.join
+    end
+
+    assert_equal [[1, "First"], [2, "Last"]], list.items.pluck(:position, :name)
+
+    list.destroy
+  end
 end
 
 class TestPositioningMechanisms < Minitest::Test
@@ -245,6 +284,27 @@ class TestPositioningMechanisms < Minitest::Test
     Author.where(id: teacher.id).update_all position: 0
     mechanisms.send(:contract, list.authors, 2..)
     assert_equal [0, 1, 2], list.authors.pluck(:position)
+  end
+
+  def test_expand_with_nothing_to_move
+    list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    assert_equal 1, update_count { mechanisms.send(:expand, list.authors, 3..) }
+    assert_equal [1, 2], list.authors.pluck(:position)
+  end
+
+  def test_contract_with_nothing_to_move
+    list = List.create name: "List"
+    list.authors.create name: "Student", type: "Author::Student"
+    teacher = list.authors.create name: "Teacher", type: "Author::Teacher"
+
+    mechanisms = Positioning::Mechanisms.new(teacher, :position)
+    Author.where(id: teacher.id).update_all position: 0
+    assert_equal 1, update_count { mechanisms.send(:contract, list.authors, 3..) }
+    assert_equal [0, 1], list.authors.pluck(:position)
   end
 
   def test_solidify_position_integer
@@ -582,6 +642,15 @@ class TestPositioningMechanisms < Minitest::Test
 
     parent.destroy
     assert mechanisms.send(:destroyed_via_positioning_scope?)
+  end
+
+  private
+
+  def update_count(&block)
+    count = 0
+    callback = ->(*, payload) { count += 1 if payload[:sql].start_with?("UPDATE") }
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record", &block)
+    count
   end
 end
 
