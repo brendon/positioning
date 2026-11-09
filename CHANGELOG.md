@@ -12,6 +12,10 @@
 - Fix healing raising a unique index violation with a custom order, or with existing zero or negative positions. Tied positions are now healed in primary key order.
 - Fix lists being corrupted when a record with a NULL position (or whose row is already gone) is updated or destroyed.
 
+## [0.4.8] - 2026-03-28
+
+- Fix `belongs_to` scopes with a composite foreign key, both when positioning records and when they're destroyed through their scope's parent.
+
 ## [0.4.7] - 2025-08-09
 
 - Fix `solidify_position` so that it properly raises an error for an invalid string position.
