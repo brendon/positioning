@@ -819,7 +819,6 @@ class TestPositioningScopes < Minitest::Test
 
     second_item.restrictions.create
 
-    # Within an outer transaction (as here), the rollback of the halted destroy is swallowed
     refute second_item.destroy
 
     assert_equal [1, 2, 3], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
@@ -827,6 +826,17 @@ class TestPositioningScopes < Minitest::Test
     third_item.destroy
 
     assert_equal [1, 2], [first_item.reload, second_item.reload].map(&:position)
+  end
+
+  def test_that_a_soft_deleted_record_leaves_the_list
+    list = List.create name: "First List"
+    first_item = SoftDeletableItem.create list: list, name: "First Item"
+    second_item = SoftDeletableItem.create list: list, name: "Second Item"
+    third_item = SoftDeletableItem.create list: list, name: "Third Item"
+
+    second_item.destroy
+
+    assert_equal [1, 0, 2], [first_item.reload, second_item.reload, third_item.reload].map(&:position)
   end
 end
 

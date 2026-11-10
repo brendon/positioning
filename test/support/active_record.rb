@@ -178,6 +178,13 @@ ActiveRecord::Migration.suppress_messages do
     create_table :restrictions, force: true do |t|
       t.references :restricted_item, null: false
     end
+
+    create_table :soft_deletable_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.datetime :deleted_at
+      t.references :list, null: false
+    end
   end
 end
 

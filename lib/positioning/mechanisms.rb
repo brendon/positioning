@@ -51,18 +51,14 @@ module Positioning
     end
 
     def destroy_position
-      if destroyed_via_positioning_scope?
-        yield
-      else
-        lock_positioning_scope!
+      return yield if destroyed_via_positioning_scope?
 
-        position_was # Memoize the original position while the row still exists
+      lock_positioning_scope!
+      remember_position
 
-        yield
-
-        # Only close the gap once the row is gone. A later before_destroy callback can halt the destroy,
-        # and inside an outer transaction that rollback is swallowed.
-        contract(positioning_scope, (position_was + 1)..) if @positioned.destroyed? && !position_was.nil?
+      if yield
+        move_out_of_the_way
+        close_the_gap
       end
     end
 
@@ -119,6 +115,10 @@ module Positioning
       @position_was = record_scope.pick(@column)
     end
 
+    def remember_position
+      position_was
+    end
+
     def staying_put?
       !positioning_scope_changed? && position == position_was
     end
@@ -130,6 +130,10 @@ module Positioning
     def move_out_of_the_way
       position_was # Memoize the original position before changing it
       record_scope.update_all @column => 0
+    end
+
+    def close_the_gap
+      contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
     end
 
     # Skip the second query if nothing moved, as MySQL would still lock the scope's first row to find no matches
