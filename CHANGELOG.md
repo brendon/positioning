@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- `prior_*` and `subsequent_*` now return `nil` (rather than raising) for records without a position.
+
 ## [0.4.10] - 2026-11-09
 
 - Fix MySQL deadlocks when adding a record to the end of a list while another transaction holds the list's first row and then waits on the scope lock, such as a `touch: true` chain from a child. When nothing needs to move, we no longer run the query that locked that row.

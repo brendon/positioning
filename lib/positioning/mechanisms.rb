@@ -6,11 +6,11 @@ module Positioning
     end
 
     def prior
-      positioning_scope.where(@column => position - 1).first
+      positioning_scope.where(@column => position - 1).first unless position.nil?
     end
 
     def subsequent
-      positioning_scope.where(@column => position + 1).first
+      positioning_scope.where(@column => position + 1).first unless position.nil?
     end
 
     def create_position
