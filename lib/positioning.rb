@@ -15,9 +15,14 @@ module Positioning
 
     class_methods do
       # Scope components are resolved on use rather than in `positioned`, so that a belongs_to
-      # declared after `positioned` (or in a concern included later) is still recognised.
+      # declared after `positioned` (or in a concern included later) is still recognised. Once every
+      # component is a belongs_to or a column the result can't change, so it's kept from then on.
       def positioning_columns
-        (@positioning_scopes || {}).transform_values do |scope_components|
+        return @positioning_columns if @positioning_columns
+
+        resolved = true
+
+        scopes = (@positioning_scopes || {}).transform_values do |scope_components|
           {scope_columns: [], scope_associations: []}.tap do |scope|
             scope_components.each do |scope_component|
               reflection = reflections[scope_component]
@@ -27,11 +32,16 @@ module Positioning
                 scope[:scope_columns] << reflection.foreign_type if reflection.polymorphic?
                 scope[:scope_associations] << reflection.name
               else
+                # Unless it's a column, it could be a belongs_to that hasn't been declared yet
+                resolved &&= column_names.include?(scope_component)
                 scope[:scope_columns] << scope_component
               end
             end
           end
         end
+
+        @positioning_columns = scopes if resolved
+        scopes
       end
 
       def positioned(on: [], column: :position)
@@ -46,6 +56,7 @@ module Positioning
           raise Error.new "The column `#{column}` has already been used by the scope `#{@positioning_scopes[column]}`."
         else
           @positioning_scopes[column] = Array.wrap(on).map(&:to_s)
+          @positioning_columns = nil
 
           define_method(:"prior_#{column}") { Mechanisms.new(self, column).prior }
           define_method(:"subsequent_#{column}") { Mechanisms.new(self, column).subsequent }

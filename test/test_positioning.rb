@@ -703,17 +703,22 @@ class TestPositioningScopes < Minitest::Test
     assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}}, PositionedFirstItem.positioning_columns)
   end
 
-  def test_that_position_columns_are_not_cached
+  def test_that_position_columns_are_only_cached_once_resolved
     model = Class.new(ActiveRecord::Base) do
       self.table_name = "positioned_first_items"
       positioned on: :list
     end
 
     assert_equal({position: {scope_columns: ["list"], scope_associations: []}}, model.positioning_columns)
+    refute_same model.positioning_columns, model.positioning_columns
 
     model.belongs_to :list
 
     assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}}, model.positioning_columns)
+    assert_same model.positioning_columns, model.positioning_columns
+
+    # A column is resolved too
+    assert_same Author.positioning_columns, Author.positioning_columns
   end
 
   def test_that_scope_changes_work_with_belongs_to_declared_after_positioned
