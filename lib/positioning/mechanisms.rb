@@ -55,6 +55,7 @@ module Positioning
 
       lock_positioning_scope!
       position_was = self.position_was
+      positioning_scope = self.positioning_scope
 
       if yield
         move_out_of_the_way

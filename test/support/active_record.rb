@@ -185,6 +185,8 @@ ActiveRecord::Migration.suppress_messages do
       t.datetime :deleted_at
       t.references :list, null: false
     end
+
+    add_index :soft_deletable_items, [:list_id, :deleted_at, :position], unique: true
   end
 end
 
