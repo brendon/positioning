@@ -136,6 +136,8 @@ To assign a specific position when creating or updating a record you can simply 
 
 Position parameters can be strings or symbols, so you can provide them from the browser.
 
+If you define your own writer for the position column in your model (e.g. `position=`), call `super` to pass the value on to positioning.
+
 Here are some examples:
 
 ##### Creating
