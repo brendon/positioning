@@ -14,9 +14,6 @@ module Positioning
     extend ActiveSupport::Concern
 
     class_methods do
-      # Scope components are resolved on use rather than in `positioned`, so that a belongs_to
-      # declared after `positioned` (or in a concern included later) is still recognised. Once every
-      # component is a belongs_to or a column the result can't change, so it's kept from then on.
       def positioning_columns
         return @positioning_columns if @positioning_columns
 
