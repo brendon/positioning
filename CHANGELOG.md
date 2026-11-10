@@ -3,6 +3,7 @@
 - `prior_*` and `subsequent_*` now return `nil` (rather than raising) for records without a position.
 - A position writer defined in the model now composes with positioning's via `super`.
 - `belongs_to` scopes are now recognised even when declared after `positioned` (e.g. in a concern included later).
+- Don't write anything when an assigned position doesn't change. `updated_at` is no longer bumped and `saved_change_to_position?` is false in that case.
 
 ## [0.4.10] - 2026-11-09
 
