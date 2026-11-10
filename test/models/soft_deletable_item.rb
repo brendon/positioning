@@ -1,7 +1,7 @@
 class SoftDeletableItem < ActiveRecord::Base
   belongs_to :list
 
-  positioned on: :list
+  positioned on: [:list, :deleted_at]
 
   default_scope { where(deleted_at: nil) }
 
