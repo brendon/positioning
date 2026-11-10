@@ -33,8 +33,8 @@ module Positioning
 
       solidify_position
 
-      if !positioning_scope_changed? && position == position_was
-        @positioned.clear_attribute_changes [@column]
+      if staying_put?
+        forget_position_change
         return
       end
 
@@ -113,6 +113,14 @@ module Positioning
       return @position_was if defined?(@position_was)
 
       @position_was = record_scope.pick(@column)
+    end
+
+    def staying_put?
+      !positioning_scope_changed? && position == position_was
+    end
+
+    def forget_position_change
+      @positioned.clear_attribute_changes [@column]
     end
 
     def move_out_of_the_way
