@@ -699,6 +699,39 @@ class TestPositioningScopes < Minitest::Test
     )
   end
 
+  def test_that_position_columns_will_cope_with_belongs_to_declared_after_positioned
+    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}}, PositionedFirstItem.positioning_columns)
+  end
+
+  def test_that_position_columns_are_only_cached_once_resolved
+    model = Class.new(ActiveRecord::Base) do
+      self.table_name = "positioned_first_items"
+      positioned on: :list
+    end
+
+    assert_equal({position: {scope_columns: ["list"], scope_associations: []}}, model.positioning_columns)
+    refute_same model.positioning_columns, model.positioning_columns
+
+    model.belongs_to :list
+
+    assert_equal({position: {scope_columns: ["list_id"], scope_associations: [:list]}}, model.positioning_columns)
+    assert_same model.positioning_columns, model.positioning_columns
+
+    # A column is resolved too
+    assert_same Author.positioning_columns, Author.positioning_columns
+  end
+
+  def test_that_scope_changes_work_with_belongs_to_declared_after_positioned
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    first_item = PositionedFirstItem.create list: first_list, name: "First Item"
+    second_item = PositionedFirstItem.create list: first_list, name: "Second Item"
+
+    first_item.update list: second_list
+
+    assert_equal [1, 1], [first_item.reload, second_item.reload].map(&:position)
+  end
+
   def test_that_position_columns_must_have_unique_keys
     assert_raises(Positioning::Error) do
       Item.send :positioned, on: :list
