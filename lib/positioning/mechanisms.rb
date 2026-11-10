@@ -33,7 +33,6 @@ module Positioning
 
       solidify_position
 
-      # Assigning the position a record already has (e.g. a form resubmitting it) moves nothing
       if !positioning_scope_changed? && position == position_was
         @positioned.clear_attribute_changes [@column]
         return
