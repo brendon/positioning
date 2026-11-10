@@ -166,6 +166,25 @@ ActiveRecord::Migration.suppress_messages do
 
     add_index :posts, [:blog_id, :position], unique: true
     add_index :posts, :order, unique: true
+
+    create_table :restricted_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.references :list, null: false
+    end
+
+    add_index :restricted_items, [:list_id, :position], unique: true
+
+    create_table :restrictions, force: true do |t|
+      t.references :restricted_item, null: false
+    end
+
+    create_table :soft_deletable_items, force: true do |t|
+      t.string :name
+      t.integer :position, null: false
+      t.datetime :deleted_at
+      t.references :list, null: false
+    end
   end
 end
 

@@ -51,9 +51,12 @@ module Positioning
     end
 
     def destroy_position
-      unless destroyed_via_positioning_scope?
-        lock_positioning_scope!
+      return yield if destroyed_via_positioning_scope?
 
+      lock_positioning_scope!
+      position_was = self.position_was
+
+      if yield
         move_out_of_the_way
         contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
       end
