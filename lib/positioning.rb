@@ -14,10 +14,10 @@ module Positioning
     extend ActiveSupport::Concern
 
     class_methods do
-      # Scope components are resolved on first use rather than in `positioned`, so that a belongs_to
+      # Scope components are resolved on use rather than in `positioned`, so that a belongs_to
       # declared after `positioned` (or in a concern included later) is still recognised.
       def positioning_columns
-        @positioning_columns ||= (@positioning_scopes || {}).transform_values do |scope_components|
+        (@positioning_scopes || {}).transform_values do |scope_components|
           {scope_columns: [], scope_associations: []}.tap do |scope|
             scope_components.each do |scope_component|
               reflection = reflections[scope_component]
@@ -46,7 +46,6 @@ module Positioning
           raise Error.new "The column `#{column}` has already been used by the scope `#{@positioning_scopes[column]}`."
         else
           @positioning_scopes[column] = Array.wrap(on).map(&:to_s)
-          @positioning_columns = nil
 
           define_method(:"prior_#{column}") { Mechanisms.new(self, column).prior }
           define_method(:"subsequent_#{column}") { Mechanisms.new(self, column).subsequent }
