@@ -33,7 +33,7 @@ module Positioning
 
       solidify_position
 
-      forget_position_change and return if staying_put?
+      return forget_position_change if staying_put?
 
       move_out_of_the_way
 
