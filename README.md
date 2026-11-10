@@ -284,7 +284,7 @@ positioned on: [:type]
 
 #### Callbacks
 
-Positions are rearranged in `before_create` and `before_update` callbacks. Declare `positioned` after any `before_create` or `before_update` callbacks of your own that might halt the save (e.g. with `throw :abort`). Otherwise, when the save happens inside an outer transaction (where a halted save's rollback doesn't take effect), the list will already have been rearranged for a change that didn't happen.
+Positions are rearranged in `before_create` and `before_update` callbacks. Declare `positioned` after any `before_create` or `before_update` callbacks of your own that might halt the save (e.g. with `throw :abort`). Otherwise, when the save happens inside an outer transaction (where a halted save's rollback doesn't take effect), the list will already have been rearranged for a change that didn't happen. Destroys don't need this, since the gap is only closed once the record has actually been destroyed.
 
 Other records in the list are moved with `update_all`, so their callbacks don't run and their `updated_at` doesn't change. If you cache list items, consider `belongs_to :list, touch: true` so that the parent's cache key changes whenever its list does.
 
