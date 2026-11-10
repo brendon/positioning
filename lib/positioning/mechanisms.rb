@@ -58,7 +58,7 @@ module Positioning
 
       if yield
         move_out_of_the_way
-        close_the_gap
+        contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
       end
     end
 
@@ -130,10 +130,6 @@ module Positioning
     def move_out_of_the_way
       position_was # Memoize the original position before changing it
       record_scope.update_all @column => 0
-    end
-
-    def close_the_gap
-      contract(positioning_scope, (position_was + 1)..) unless position_was.nil?
     end
 
     # Skip the second query if nothing moved, as MySQL would still lock the scope's first row to find no matches
