@@ -54,7 +54,7 @@ module Positioning
       return yield if destroyed_via_positioning_scope?
 
       lock_positioning_scope!
-      remember_position
+      position_was = self.position_was
 
       if yield
         move_out_of_the_way
@@ -113,10 +113,6 @@ module Positioning
       return @position_was if defined?(@position_was)
 
       @position_was = record_scope.pick(@column)
-    end
-
-    def remember_position
-      position_was
     end
 
     def staying_put?
