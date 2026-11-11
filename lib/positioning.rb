@@ -4,6 +4,7 @@ require_relative "positioning/healer"
 
 require "active_support/concern"
 require "active_support/lazy_load_hooks"
+require "json"
 
 module Positioning
   class Error < StandardError; end

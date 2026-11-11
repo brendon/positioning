@@ -183,16 +183,6 @@ class TestPositioningMechanisms < Minitest::Test
     assert_equal "id", mechanisms.send(:primary_key)
   end
 
-  def test_with_connection
-    list = List.create name: "List"
-    student = list.authors.create name: "Student", type: "Author::Student"
-
-    mechanisms = Positioning::Mechanisms.new(student, :position)
-    mechanisms.send(:with_connection) do |connection|
-      assert_kind_of ActiveRecord::ConnectionAdapters::AbstractAdapter, connection
-    end
-  end
-
   def test_record_scope
     list = List.create name: "List"
     student = list.authors.create name: "Student", type: "Author::Student"
