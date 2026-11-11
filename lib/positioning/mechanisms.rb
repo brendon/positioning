@@ -16,7 +16,6 @@ module Positioning
     def create_position
       lock_positioning_scope!
 
-      # A column default isn't a requested position. Only an assigned value is.
       clear_position unless position_changed?
 
       solidify_position
@@ -28,6 +27,7 @@ module Positioning
       return unless positioning_scope_changed? || position_changed?
 
       lock_positioning_scope!
+      position_was = self.position_was
 
       clear_position if positioning_scope_changed? && !position_changed?
 
@@ -37,7 +37,6 @@ module Positioning
 
       move_out_of_the_way
 
-      # A record without a position doesn't occupy a slot, so there's no gap to close
       if position_was.nil?
         expand(positioning_scope, position..)
       elsif positioning_scope_changed?
@@ -79,7 +78,6 @@ module Positioning
       end
     end
 
-    # The record's row as it is in the database, regardless of default scopes or in-memory key changes
     def record_scope
       base_class.unscoped.where primary_key => [@positioned.id_in_database]
     end
@@ -115,11 +113,9 @@ module Positioning
     end
 
     def move_out_of_the_way
-      position_was # Memoize the original position before changing it
       record_scope.update_all @column => 0
     end
 
-    # Skip the second query if nothing moved, as MySQL would still lock the scope's first row to find no matches
     def expand(scope, range)
       if scope.where(@column => range).update_all("#{quoted_column} = #{quoted_column} * -1").positive?
         scope.where(@column => ..-1).update_all "#{quoted_column} = #{quoted_column} * -1 + 1"

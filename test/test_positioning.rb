@@ -248,8 +248,6 @@ class TestPositioningMechanisms < Minitest::Test
     mechanisms = Positioning::Mechanisms.new(student, :position)
     mechanisms.send(:move_out_of_the_way)
 
-    assert_equal 1, mechanisms.send(:position_was)
-    assert mechanisms.instance_variable_defined? :@position_was
     assert_equal 0, Author.where(id: student.id).pick(:position)
   end
 
