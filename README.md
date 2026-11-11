@@ -40,6 +40,8 @@ If you have a polymorphic `belongs_to` then you'll want to add the type column t
 
 The Positioning gem uses `0` and negative integers to rearrange the lists it manages so don't add database validations to restrict the usage of these. You are also restricted from using `0` and negative integers as position values. If you try, the position value will become `1`. If you try to set an explicit position value that is greater than the next available list position, it will be rounded down to that value.
 
+Likewise, don't validate the position column in your model (e.g. `validates :position, presence: true`). A new record doesn't have a position until one is assigned in a `before_create` callback, which runs after validation.
+
 ### Declaring Positioning
 
 To declare that your model should keep track of the position of its records you can use the `positioned` method. Here are some examples:
@@ -133,6 +135,8 @@ To assign a specific position when creating or updating a record you can simply 
 **You can provide the position value as a JSON string and it will be decoded first. This could be useful if you have no other way to provide `before:` or `after:` as a hash (e.g. `"{\"after\":33}"`). See below for a technique to provide `before:` and `after:` using form helpers.**
 
 Position parameters can be strings or symbols, so you can provide them from the browser.
+
+If you define your own writer for the position column in your model (e.g. `position=`), call `super` to pass the value on to positioning.
 
 Here are some examples:
 
@@ -280,9 +284,21 @@ If you must position child models separately, scope their position by the `type`
 positioned on: [:type]
 ```
 
+#### Callbacks
+
+Positions are rearranged in `before_create` and `before_update` callbacks. Declare `positioned` after any `before_create` or `before_update` callbacks of your own that might halt the save (e.g. with `throw :abort`). Otherwise, if the save runs inside a transaction that's already open and your code carries on after `save` returns `false`, the outer transaction commits with the other records in the list already moved to make room for a change that didn't happen. Destroys don't need this, since the records after a destroyed record are only moved up once it has actually been destroyed.
+
+Other records in the list are moved with `update_all`, so their callbacks don't run and their `updated_at` doesn't change. If you cache list items, consider `belongs_to :list, touch: true` so that the parent's `updated_at` (and so its cache key) changes whenever one of its items is saved or destroyed.
+
+#### Bypassing Positioning
+
+Positioning works through model callbacks, so anything that skips them skips positioning too: `insert_all`, `upsert_all`, `update_all`, `update_column(s)`, `delete`, `delete_all`, and associations declared with `dependent: :delete_all` or `dependent: :nullify`. (`dependent: :delete_all` on the scope's parent is fine, since the whole list gets deleted with it.) If you use these to change positions or scopes, heal the position column afterwards.
+
 ## Concurrency
 
 The queries that this gem runs (especially those that seek the next position integer available) are vulnerable to race conditions. To this end, we lock the scope records to ensure that our model callbacks that determine and assign positions run sequentially. Previously we used an Advisory Lock for this purpose but this was difficult to test and a bit overkill in most situations. Where a scope doesn't exist, we lock all the records in the table.
+
+Locking a parent record takes a single row lock and works even when the list is empty, so where you can, scope on a `belongs_to` association. When we lock the records in a scope instead, there's nothing to lock in an empty list, so two transactions adding the first records to the same list at the same time can both find it empty and choose the same position. With a unique index on your scope and position columns, the second insert fails with `ActiveRecord::RecordNotUnique`. On MySQL, two transactions locking rows in the same list can also occasionally deadlock under heavy contention. MySQL then rolls back one of them and Rails raises `ActiveRecord::Deadlocked`. In either case you can retry the failed transaction. Note that `NULL` values never conflict in a unique index, so if part of your scope can be `NULL` (e.g. the root of a tree), index a generated column such as `coalesce(parent_id, 0)` instead.
 
 **Please Note SQLite Users:** Row locking isn't supported by SQLite. Since writes are non-concurrent by default, the worst you'll probably see are errors about the database being locked under high load.
 
