@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-11
+
+- Require Active Record 7.2+ and Ruby 3.3+, matching what's tested. Bundler will keep apps on older versions on 0.4.10.
 - `prior_*` and `subsequent_*` now return `nil` (rather than raising) for records without a position.
 - A position writer defined in the model now composes with positioning's via `super`.
 - `belongs_to` scopes are now recognised even when declared after `positioned` (e.g. in a concern included later).
@@ -7,7 +10,6 @@
 - Fix a destroy halted by a callback declared after `positioned` (e.g. `dependent: :restrict_with_error`), inside a transaction that's already open, leaving the record at position 0 and the records after it moved up.
 - Add tests for behaviour that mutation testing showed was untested.
 - Document caveats around validating the position column, halting callbacks, operations that bypass positioning, and the limits of row locking.
-- Require Active Record 7.2+ and Ruby 3.3+, matching what's tested. Bundler will keep apps on older versions on 0.4.10.
 
 ## [0.4.10] - 2026-11-09
 
