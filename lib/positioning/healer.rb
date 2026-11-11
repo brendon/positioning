@@ -17,7 +17,6 @@ module Positioning
             if associated_records.any?
               associated_records.each(&:lock!)
             else
-              # Relation#lock! only flags the relation, it doesn't run a query
               @model.where(scope_record.slice(*scope_columns)).lock.ids
             end
 
@@ -46,9 +45,6 @@ module Positioning
       @model.primary_key
     end
 
-    # Records are first parked on distinct values below anything currently in use (and below 0),
-    # then flipped into 1..n in one statement, so a unique index on the position column can't be
-    # violated part way through.
     def sequence(scope)
       ids = scope.reorder(@order).order(*Array(primary_key)).pluck(*Array(primary_key))
       return if ids.empty?

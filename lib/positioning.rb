@@ -30,7 +30,6 @@ module Positioning
                 scope[:scope_columns] << reflection.foreign_type if reflection.polymorphic?
                 scope[:scope_associations] << reflection.name
               else
-                # Unless it's a column, it could be a belongs_to that hasn't been declared yet
                 resolved &&= column_names.include?(scope_component)
                 scope[:scope_columns] << scope_component
               end
@@ -59,8 +58,6 @@ module Positioning
           define_method(:"prior_#{column}") { Mechanisms.new(self, column).prior }
           define_method(:"subsequent_#{column}") { Mechanisms.new(self, column).subsequent }
 
-          # Defined in a module so that a writer defined in the model itself can call super to reach it,
-          # rather than replacing it (or being replaced by it).
           writer = Module.new do
             define_method(:"#{column}=") do |position|
               attribute_will_change!(column.to_s)
