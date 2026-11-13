@@ -204,11 +204,11 @@ module Positioning
         scope_associations.each do |scope_association|
           if @positioned.persisted? && positioning_scope_changed?
             associated_record = record_scope.first.send(scope_association)
-            associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+            lock_associated_record(associated_record) if associated_record
           end
 
           associated_record = @positioned.send(scope_association)
-          associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+          lock_associated_record(associated_record) if associated_record
         end
       else
         if @positioned.persisted? && positioning_scope_changed?
@@ -217,6 +217,17 @@ module Positioning
 
         positioning_scope.lock.all.load
       end
+    end
+
+    def lock_associated_record(associated_record)
+      model = associated_record.class.base_class
+      lock = postgresql?(model) ? "FOR NO KEY UPDATE" : true
+
+      model.lock(lock).find(associated_record.id)
+    end
+
+    def postgresql?(model)
+      %w[postgresql postgis].include? model.connection_db_config.adapter
     end
 
     def positioning_scope_was

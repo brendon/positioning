@@ -147,6 +147,42 @@ class TestTransactionSafety < Minitest::Test
 
     list.destroy
   end
+
+  def test_no_deadlock_with_foreign_key_references_on_postgresql
+    skip "Only applies to PostgreSQL" unless ENV["DB"] == "postgresql"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    ActiveRecord::Base.connection_pool.with_connection do |connection|
+      connection.create_table(:list_notes, force: true) { |t| t.references :list, foreign_key: true }
+    end
+
+    list = List.create name: "List"
+    barrier = Concurrent::CyclicBarrier.new(2)
+
+    threads = 2.times.map do
+      Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do |connection|
+          ActiveRecord::Base.transaction do
+            connection.insert("INSERT INTO list_notes (list_id) VALUES (#{list.id})")
+            barrier.wait(5)
+
+            list.items.create name: "Item"
+          end
+        end
+      end
+    end
+
+    threads.each(&:join)
+
+    assert_equal [1, 2], list.items.pluck(:position)
+  ensure
+    ActiveRecord::Base.connection_pool.with_connection do |connection|
+      connection.drop_table :list_notes, if_exists: true
+    end
+
+    list&.destroy
+  end
 end
 
 class TestPositioningMechanisms < Minitest::Test
