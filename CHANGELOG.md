@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix saves to a list whose `belongs_to` parent is `nil` (e.g. the roots of a tree) taking no lock at all, so that on PostgreSQL concurrent saves to that list could give records the same position. The records in the scope are now locked instead, as for scopes without a `belongs_to` association.
+
 ## [0.5.0] - 2026-11-11
 
 - Require Active Record 7.2+ and Ruby 3.3+, matching what's tested. Bundler will keep apps on older versions on 0.4.10.
