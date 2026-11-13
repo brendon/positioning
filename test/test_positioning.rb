@@ -109,6 +109,30 @@ class TestTransactionSafety < Minitest::Test
     list.destroy
   end
 
+  def test_no_duplicate_row_values_when_creating_without_a_parent
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    categories = [Category.create(name: "Root")]
+
+    4.times do
+      threads = 5.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            categories << Category.create(name: "Root")
+          rescue ActiveRecord::Deadlocked
+          end
+        end
+      end
+      threads.each(&:join)
+    end
+
+    assert_equal (1..categories.length).to_a, Category.where(id: categories.map(&:id)).order(:position).pluck(:position)
+
+    Category.where(id: categories.map(&:id)).delete_all
+  end
+
   def test_appending_does_not_wait_for_a_lock_on_the_first_item
     skip "Tests MySQL's locking" unless ENV["DB"] == "mysql"
 
@@ -552,6 +576,23 @@ class TestPositioningMechanisms < Minitest::Test
 
     Blog.expects(:lock).once.returns(Blog)
     mechanisms.send(:lock_positioning_scope!)
+  end
+
+  def test_lock_positioning_scope_with_nil_scope_association
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    Category.create name: "First Category"
+    category = Category.new name: "Second Category"
+    mechanisms = Positioning::Mechanisms.new(category, :position)
+
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    assert_match(/FROM .categories. WHERE .categories.\..parent_id. IS NULL .*FOR UPDATE/i, queries.join("\n"))
   end
 
   def test_positioning_scope
