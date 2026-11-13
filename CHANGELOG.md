@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix a deadlock on PostgreSQL between transactions that each insert a row referencing a list's parent by foreign key and then position a record in that list. The parent is now locked `FOR NO KEY UPDATE` rather than `FOR UPDATE`. It doesn't conflict with the `FOR KEY SHARE` lock PostgreSQL takes on the parent for those inserts, so positioning no longer makes them wait either.
+
 ## [0.5.0] - 2026-11-11
 
 - Require Active Record 7.2+ and Ruby 3.3+, matching what's tested. Bundler will keep apps on older versions on 0.4.10.
