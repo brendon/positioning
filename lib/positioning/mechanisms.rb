@@ -212,11 +212,15 @@ module Positioning
         end
       else
         if @positioned.persisted? && positioning_scope_changed?
-          positioning_scope_was.lock.all.load
+          lock_records_in positioning_scope_was
         end
 
-        positioning_scope.lock.all.load
+        lock_records_in positioning_scope
       end
+    end
+
+    def lock_records_in(scope)
+      scope.reorder(*Array(primary_key)).lock.ids
     end
 
     def positioning_scope_was
