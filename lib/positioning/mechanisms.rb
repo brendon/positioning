@@ -201,22 +201,31 @@ module Positioning
 
     def lock_positioning_scope!
       if scope_associations.present?
-        scope_associations.each do |scope_association|
-          if @positioned.persisted? && positioning_scope_changed?
-            associated_record = record_scope.first.send(scope_association)
-            associated_record.class.base_class.lock.find(associated_record.id) if associated_record
-          end
-
-          associated_record = @positioned.send(scope_association)
-          associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+        associated_records_in_lock_order.each do |associated_record|
+          associated_record.class.base_class.lock.find(associated_record.id)
         end
       else
-        if @positioned.persisted? && positioning_scope_changed?
-          positioning_scope_was.lock.all.load
+        scopes_in_lock_order.each do |scope|
+          scope.lock.all.load
         end
-
-        positioning_scope.lock.all.load
       end
+    end
+
+    def associated_records_in_lock_order
+      records_in_affected_scopes
+        .flat_map { |record| scope_associations.filter_map { |scope_association| record.send(scope_association) } }
+        .uniq { |associated_record| [associated_record.class.base_class, associated_record.id] }
+        .sort_by { |associated_record| [associated_record.class.base_class.table_name, associated_record.id] }
+    end
+
+    def scopes_in_lock_order
+      records_in_affected_scopes.map { |record| base_class.where(record.slice(*scope_columns)) }.sort_by(&:to_sql)
+    end
+
+    def records_in_affected_scopes
+      return [@positioned] unless @positioned.persisted? && positioning_scope_changed?
+
+      [record_scope.first, @positioned]
     end
 
     def positioning_scope_was
