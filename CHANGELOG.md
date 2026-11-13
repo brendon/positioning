@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix a deadlock when two records move between the same two lists in opposite directions at the same time. The old and new lists are now locked in a fixed order.
+
 ## [0.5.0] - 2026-11-11
 
 - Require Active Record 7.2+ and Ruby 3.3+, matching what's tested. Bundler will keep apps on older versions on 0.4.10.
