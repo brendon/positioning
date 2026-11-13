@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- When a scope has no `belongs_to` association, lock the records in it without loading them. Before, every create, update and destroy loaded every record in the scope (for a model with no scope, every record in the table) just to lock them.
+
 ## [0.5.0] - 2026-11-11
 
 - Require Active Record 7.2+ and Ruby 3.3+, matching what's tested. Bundler will keep apps on older versions on 0.4.10.
