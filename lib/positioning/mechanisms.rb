@@ -196,31 +196,34 @@ module Positioning
     end
 
     def positioning_scope
-      base_class.where @positioned.slice(*scope_columns)
+      scope_of @positioned
     end
 
     def lock_positioning_scope!
-      if scope_associations.present?
-        scope_associations.each do |scope_association|
-          if @positioned.persisted? && positioning_scope_changed?
-            associated_record = record_scope.first.send(scope_association)
-            associated_record.class.base_class.lock.find(associated_record.id) if associated_record
-          end
+      lock_scope_of record_scope.first if @positioned.persisted? && positioning_scope_changed?
+      lock_scope_of @positioned
+    end
 
-          associated_record = @positioned.send(scope_association)
-          associated_record.class.base_class.lock.find(associated_record.id) if associated_record
+    def lock_scope_of(record)
+      associated_records = scope_associations.filter_map do |scope_association|
+        record.send(scope_association)
+      end
+
+      if associated_records.any?
+        associated_records.each do |associated_record|
+          associated_record.class.base_class.lock.find(associated_record.id)
         end
       else
-        if @positioned.persisted? && positioning_scope_changed?
-          positioning_scope_was.lock.all.load
-        end
-
-        positioning_scope.lock.all.load
+        scope_of(record).lock.all.load
       end
     end
 
     def positioning_scope_was
-      base_class.where record_scope.first.slice(*scope_columns)
+      scope_of record_scope.first
+    end
+
+    def scope_of(record)
+      base_class.where record.slice(*scope_columns)
     end
 
     def in_positioning_scope?
