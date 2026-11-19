@@ -26,7 +26,7 @@ end
 
 case ENV["DB"]
 when "sqlite"
-  gem "sqlite3", "~> 2.9.0"
+  gem "sqlite3", "~> 2.10.2"
 when "postgresql"
   gem "pg", "~> 1.6.3"
 else
