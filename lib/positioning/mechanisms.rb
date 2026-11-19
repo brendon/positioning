@@ -196,7 +196,7 @@ module Positioning
     end
 
     def positioning_scope
-      base_class.where @positioned.slice(*scope_columns)
+      scope_of @positioned
     end
 
     def lock_positioning_scope!
@@ -214,12 +214,16 @@ module Positioning
           associated_record.class.base_class.lock.find(associated_record.id)
         end
       else
-        base_class.where(record.slice(*scope_columns)).lock.all.load
+        scope_of(record).lock.all.load
       end
     end
 
     def positioning_scope_was
-      base_class.where record_scope.first.slice(*scope_columns)
+      scope_of record_scope.first
+    end
+
+    def scope_of(record)
+      base_class.where record.slice(*scope_columns)
     end
 
     def in_positioning_scope?
