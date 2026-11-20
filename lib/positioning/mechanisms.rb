@@ -214,7 +214,7 @@ module Positioning
           associated_record.class.base_class.lock.find(associated_record.id)
         end
       else
-        scope_of(record).lock.all.load
+        scope_of(record).reorder(*Array(primary_key)).lock.ids
       end
     end
 
