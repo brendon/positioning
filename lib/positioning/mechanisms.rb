@@ -211,11 +211,22 @@ module Positioning
 
       if associated_records.any?
         associated_records.each do |associated_record|
-          associated_record.class.base_class.lock.find(associated_record.id)
+          lock_associated_record(associated_record)
         end
       else
         scope_of(record).lock.all.load
       end
+    end
+
+    def lock_associated_record(associated_record)
+      model = associated_record.class.base_class
+      lock = postgresql?(model) ? "FOR NO KEY UPDATE" : true
+
+      model.lock(lock).find(associated_record.id)
+    end
+
+    def postgresql?(model)
+      %w[postgresql postgis].include? model.connection_db_config.adapter
     end
 
     def positioning_scope_was

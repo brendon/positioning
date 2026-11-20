@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 - Fix saves to a list whose `belongs_to` parent is `nil` (e.g. the roots of a tree) taking no lock at all, so that on PostgreSQL concurrent saves to that list could give records the same position. The records in the scope are now locked instead, as for scopes without a `belongs_to` association.
+- Fix a deadlock on PostgreSQL between transactions that each insert a row referencing a list's parent by foreign key and then position a record in that list. The parent is now locked `FOR NO KEY UPDATE` rather than `FOR UPDATE`. It doesn't conflict with the `FOR KEY SHARE` lock PostgreSQL takes on the parent for those inserts, so positioning no longer makes them wait either.
 
 ## [0.5.0] - 2026-11-11
 
