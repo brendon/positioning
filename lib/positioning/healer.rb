@@ -46,7 +46,7 @@ module Positioning
     end
 
     def sequence(scope)
-      ids = scope.reorder(@order).order(*Array(primary_key)).pluck(*Array(primary_key))
+      ids = scope.reorder(@order).order(primary_key).pluck(primary_key)
       return if ids.empty?
 
       floor = [scope.minimum(@column) || 0, 0].min
