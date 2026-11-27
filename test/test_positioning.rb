@@ -633,6 +633,20 @@ class TestPositioningMechanisms < Minitest::Test
     assert_match(/FROM .categories. WHERE .categories.\..parent_id. IS NULL .*FOR UPDATE/i, queries.join("\n"))
   end
 
+  def test_lock_positioning_scope_with_composite_primary_key_and_nil_scope_association
+    item = CompositePrimaryKeyItem.new item_id: 1, account_id: 1, name: "Item"
+    mechanisms = Positioning::Mechanisms.new(item, :position)
+
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    assert_match(/ORDER BY .*item_id.*account_id/i, queries.join("\n"))
+  end
+
   def test_positioning_scope
     list = List.create name: "List"
     student = list.authors.create name: "Student", type: "Author::Student"
