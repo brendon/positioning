@@ -194,6 +194,18 @@ class TestHealing < Minitest::Test
     assert_match(/FROM .categories. .*FOR UPDATE/i, capture_sql { Category.heal_position_column! })
   end
 
+  def test_heal_locks_records_in_primary_key_order
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    Product.create name: "First Product"
+    Blog.create name: "First Blog"
+    Category.create name: "First Category"
+
+    assert_match(/FROM .products. ORDER BY \S*id\S* FOR UPDATE/i, capture_sql { Product.heal_position_column! })
+    assert_match(/FROM .blogs. WHERE .* ORDER BY \S*id\S* FOR UPDATE/i, capture_sql { Blog.heal_position_column! })
+    assert_match(/FROM .categories. WHERE .* ORDER BY \S*id\S* FOR UPDATE/i, capture_sql { Category.heal_position_column! })
+  end
+
   private
 
   def capture_sql

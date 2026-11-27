@@ -17,7 +17,7 @@ module Positioning
             if associated_records.any?
               associated_records.each(&:lock!)
             else
-              @model.where(scope_record.slice(*scope_columns)).lock.ids
+              @model.where(scope_record.slice(*scope_columns)).reorder(primary_key).lock.ids
             end
 
             sequence @model.where(scope_record.slice(*scope_columns))
@@ -25,7 +25,7 @@ module Positioning
         end
       else
         @model.transaction do
-          @model.lock.ids
+          @model.reorder(primary_key).lock.ids
           sequence @model
         end
       end

@@ -3,6 +3,7 @@
 - Fix saves to a list whose `belongs_to` parent is `nil` (e.g. the roots of a tree) taking no lock at all, so that on PostgreSQL concurrent saves to that list could give records the same position. The records in the scope are now locked instead, as for scopes without a `belongs_to` association.
 - Document how to avoid a deadlock between transactions that each write a row referencing a list's parent by foreign key and then position a record in that list.
 - When a scope has no `belongs_to` association, lock the records in it without loading them. Before, every create, update and destroy loaded every record in the scope (for a model with no scope, every record in the table) just to lock them.
+- When healing a scope that has no `belongs_to` association (or whose parent is `nil`), lock its records in primary key order. On MySQL, healing next to saves to the same list deadlocked more often without it.
 
 ## [0.5.0] - 2026-11-11
 
