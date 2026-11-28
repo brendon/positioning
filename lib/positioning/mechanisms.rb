@@ -200,21 +200,41 @@ module Positioning
     end
 
     def lock_positioning_scope!
-      lock_scope_of record_scope.first if @positioned.persisted? && positioning_scope_changed?
-      lock_scope_of @positioned
-    end
+      records_in_affected_scopes = self.records_in_affected_scopes
 
-    def lock_scope_of(record)
-      associated_records = scope_associations.filter_map do |scope_association|
-        record.send(scope_association)
+      associated_records_in_lock_order(records_in_affected_scopes).each do |associated_record|
+        associated_record.class.base_class.lock.find(associated_record.id)
       end
 
-      if associated_records.any?
-        associated_records.each do |associated_record|
-          associated_record.class.base_class.lock.find(associated_record.id)
-        end
-      else
-        scope_of(record).reorder(primary_key).lock.ids
+      scopes_without_associated_records_in_lock_order(records_in_affected_scopes).each do |scope|
+        scope.reorder(primary_key).lock.ids
+      end
+    end
+
+    def records_in_affected_scopes
+      return [@positioned] unless @positioned.persisted? && positioning_scope_changed?
+
+      [record_scope.first, @positioned]
+    end
+
+    def associated_records_in_lock_order(records)
+      records
+        .flat_map { |record| associated_records_of(record) }
+        .uniq { |associated_record| [associated_record.class.base_class, associated_record.id] }
+        .sort_by { |associated_record| [associated_record.class.base_class.table_name, associated_record.id] }
+    end
+
+    def scopes_without_associated_records_in_lock_order(records)
+      records
+        .select { |record| associated_records_of(record).empty? }
+        .map { |record| scope_of(record) }
+        .uniq(&:to_sql)
+        .sort_by(&:to_sql)
+    end
+
+    def associated_records_of(record)
+      scope_associations.filter_map do |scope_association|
+        record.send(scope_association)
       end
     end
 

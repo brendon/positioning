@@ -194,6 +194,88 @@ class TestTransactionSafety < Minitest::Test
   ensure
     Product.where(id: products.map(&:id)).delete_all if products
   end
+
+  def test_no_deadlock_when_records_swap_scopes
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    first_list = List.create name: "First List"
+    second_list = List.create name: "Second List"
+    first_student = first_list.authors.create name: "First Student", type: "Author::Student"
+    second_student = second_list.authors.create name: "Second Student", type: "Author::Student"
+
+    with_pause_after(/FROM .lists. .*FOR UPDATE/i) do
+      first_thread = Thread.new { pausing { first_student.update list: second_list } }
+      second_thread = Thread.new { pausing { second_student.update list: first_list } }
+
+      [first_thread, second_thread].each(&:join)
+    end
+
+    assert_equal [[1, "Second Student"]], first_list.authors.pluck(:position, :name)
+    assert_equal [[1, "First Student"]], second_list.authors.pluck(:position, :name)
+  ensure
+    first_list&.destroy
+    second_list&.destroy
+  end
+
+  def test_no_deadlock_when_records_swap_scopes_without_associations
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    enabled_blog = Blog.create name: "Enabled Blog", enabled: true
+    disabled_blog = Blog.create name: "Disabled Blog", enabled: false
+
+    with_pause_after(/FROM .blogs. .*FOR UPDATE/i) do
+      first_thread = Thread.new { pausing { enabled_blog.update enabled: false } }
+      second_thread = Thread.new { pausing { disabled_blog.update enabled: true } }
+
+      [first_thread, second_thread].each(&:join)
+    end
+
+    assert_equal [[false, 1], [true, 1]], [enabled_blog.reload, disabled_blog.reload].map { |blog| [blog.enabled, blog.position] }
+  ensure
+    Blog.where(id: [enabled_blog&.id, disabled_blog&.id].compact).delete_all
+  end
+
+  def test_no_deadlock_when_records_swap_between_a_parent_and_no_parent
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    grandparent = Category.create name: "Grandparent"
+    parent = Category.create name: "Parent", parent: grandparent
+    root = Category.create name: "Root"
+    child = Category.create name: "Child", parent: parent
+    categories = Category.where(id: [grandparent, parent, root, child].map(&:id))
+
+    with_pause_after(/FROM .categories. .*FOR UPDATE/i) do
+      first_thread = Thread.new { pausing { root.update parent: parent } }
+      second_thread = Thread.new { pausing { child.update parent: nil } }
+
+      [first_thread, second_thread].each(&:join)
+    end
+
+    assert_equal [[1, "Grandparent"], [2, "Child"]], categories.where(parent: nil).order(:position).pluck(:position, :name)
+    assert_equal [[1, "Root"]], categories.where(parent: parent).pluck(:position, :name)
+  ensure
+    categories&.delete_all
+  end
+
+  private
+
+  def with_pause_after(pattern, &block)
+    callback = ->(*, payload) { sleep 0.3 if Thread.current[:pause] && payload[:sql].match?(pattern) }
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record", &block)
+  end
+
+  def pausing
+    ActiveRecord::Base.connection_pool.with_connection do
+      Thread.current[:pause] = true
+      yield
+    end
+  end
 end
 
 class TestPositioningMechanisms < Minitest::Test
