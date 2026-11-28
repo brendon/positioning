@@ -304,6 +304,20 @@ Two transactions can also deadlock on a parent's lock if each one writes a row t
 
 **Please Note SQLite Users:** Row locking isn't supported by SQLite. Since writes are non-concurrent by default, the worst you'll probably see are errors about the database being locked under high load.
 
+**Please Note MySQL Users:** At MySQL's default isolation level (REPEATABLE READ), a transaction's first read fixes what its later reads see, which could hide changes other transactions committed while we waited for the lock. So if your transaction has already sent something when we take the lock (a validation, a callback, or your own query), we read positions with a shared lock, which sees what's current.
+
+We hold these locks until your transaction ends, and we read as little as we can. The end of the list and the record you're positioning relative to get a shared lock. The record's own row gets an exclusive lock, since we're about to write to it anyway. With a unique index on your scope and position columns, the lock on the end of the list is only on its index entry, so editing other columns of that record isn't held up, unless a default scope makes us read its row. Without that index, reading the end of the list locks every record in the list, and with an index on the position column alone, it can lock records in other lists too. Anything writing to the locked entries (`delete`, `update_column(:position, ...)`, an `update_all` across the list) waits until your transaction ends.
+
+If that other transaction is holding something we need, one of you gets `ActiveRecord::Deadlocked`. These locks make that more likely when:
+
+- a bulk write runs across a list (`update_all`, `in_batches`) while a record in that list is being positioned.
+- records are positioned in neighbouring lists at the same time. The lock on the end of one list also covers the gap just before the next list's first record, which is where that list's positions go while they're being shifted.
+- your model has a default scope, and a transaction edits the last record in a list and then touches its parent while another transaction appends to that list.
+
+Keep those transactions short, and retry them.
+
+If you'd rather avoid this, run MySQL at READ COMMITTED, where reads are always current and we don't take these locks. You can set it in `database.yml` with `variables: { transaction_isolation: READ-COMMITTED }`, or for one transaction with `transaction(isolation: :read_committed)`. It changes more than this gem, though: `FOR UPDATE` no longer stops inserts into the gaps between rows.
+
 If you have any concerns or improvements please file a GitHub issue.
 
 ## Development

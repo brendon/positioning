@@ -62,6 +62,14 @@ module Positioning
       end
     end
 
+    def lock_positioning_scope!
+      record_in_database = record_scope.first if @positioned.persisted? && positioning_scope_changed?
+      scopes_to_lock = [record_in_database, @positioned].compact.map { |record| [scope_of(record), parent_rows_of(record)] }
+      @snapshot_may_be_stale = base_class.with_connection { |connection| Snapshot.may_be_stale?(connection) }
+
+      scopes_to_lock.each { |scope, parent_rows| lock_scope scope, parent_rows }
+    end
+
     private
 
     def base_class
@@ -101,7 +109,7 @@ module Positioning
     def position_was
       return @position_was if defined?(@position_was)
 
-      @position_was = record_scope.pick(@column)
+      @position_was = current_for_update(record_scope).pick(@column)
     end
 
     def staying_put?
@@ -146,7 +154,7 @@ module Positioning
 
       case position_before_type_cast
       when Integer
-        self.position = position_before_type_cast.clamp(1..last_position)
+        self.position = clamped(position_before_type_cast)
       when :first, {after: nil}, {after: ""}
         self.position = 1
       when nil, "", :last, {before: nil}, {before: ""}
@@ -165,6 +173,7 @@ module Positioning
         end
 
         relative_record_scope = positioning_scope.where(primary_key => [relative_id])
+        relative_record_scope = current(relative_record_scope) if moved_since_snapshot?(relative_record_scope, relative_id)
 
         unless relative_record_scope.exists?
           raise Error.new, "relative `#{@column}` record must be in the same scope"
@@ -183,8 +192,23 @@ module Positioning
       end
     end
 
+    def clamped(requested_position)
+      if snapshot_may_be_stale?
+        return 1 if requested_position <= 1
+        return requested_position if current(positioning_scope.where(@column => requested_position)).exists?
+      end
+
+      requested_position.clamp(1..last_position)
+    end
+
     def last_position
-      (positioning_scope.maximum(@column) || 0) + (in_positioning_scope? ? 0 : 1)
+      (end_of_list || 0) + (in_positioning_scope? ? 0 : 1)
+    end
+
+    def end_of_list
+      return positioning_scope.maximum(@column) unless snapshot_may_be_stale?
+
+      current(positioning_scope).reorder(@column => :desc).pick(@column)
     end
 
     def scope_columns
@@ -199,27 +223,48 @@ module Positioning
       scope_of @positioned
     end
 
-    def lock_positioning_scope!
-      lock_scope_of record_scope.first if @positioned.persisted? && positioning_scope_changed?
-      lock_scope_of @positioned
+    def lock_scope(scope, parent_rows)
+      locked_parent_ids = parent_rows.flat_map { |parent_row| parent_row.lock.ids }
+
+      scope.reorder(primary_key).lock.ids if locked_parent_ids.empty?
     end
 
-    def lock_scope_of(record)
-      associated_records = scope_associations.filter_map do |scope_association|
-        record.send(scope_association)
-      end
+    def parent_rows_of(record)
+      scope_associations.filter_map do |scope_association|
+        association = record.association(scope_association)
+        parent_class = association.klass
+        foreign_key = Array(association.reflection.foreign_key).map { |column| record[column] }
+        next if parent_class.nil? || foreign_key.any?(&:nil?)
 
-      if associated_records.any?
-        associated_records.each do |associated_record|
-          associated_record.class.base_class.lock.find(associated_record.id)
-        end
-      else
-        scope_of(record).reorder(primary_key).lock.ids
+        parent_primary_key = Array(association.reflection.association_primary_key(parent_class))
+        parent_class.base_class.unscoped.where(parent_primary_key.zip(foreign_key).to_h)
       end
+    end
+
+    def snapshot_may_be_stale?
+      @snapshot_may_be_stale
+    end
+
+    def current(relation)
+      snapshot_may_be_stale? ? relation.lock("LOCK IN SHARE MODE") : relation
+    end
+
+    def current_for_update(relation)
+      snapshot_may_be_stale? ? relation.lock : relation
+    end
+
+    def moved_since_snapshot?(relative_record_scope, relative_id)
+      return false unless snapshot_may_be_stale?
+
+      position_in_snapshot = relative_record_scope.pick(@column)
+      return true if position_in_snapshot.nil?
+
+      index_entry = base_class.unscoped.where(@positioned.slice(*scope_columns)).where(@column => position_in_snapshot)
+      Array(current(index_entry).pick(primary_key)).map(&:to_s) != Array(relative_id).map(&:to_s)
     end
 
     def positioning_scope_was
-      scope_of record_scope.first
+      scope_of current_for_update(record_scope).first
     end
 
     def scope_of(record)
@@ -228,7 +273,7 @@ module Positioning
 
     def in_positioning_scope?
       @positioned.persisted? &&
-        positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil).exists?
+        current_for_update(positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil)).exists?
     end
 
     def positioning_scope_changed?

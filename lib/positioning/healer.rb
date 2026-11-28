@@ -10,16 +10,7 @@ module Positioning
       if scope_columns.present?
         @model.unscope(:order).reselect(*scope_columns).distinct.each do |scope_record|
           @model.transaction do
-            associated_records = scope_associations.filter_map do |scope_association|
-              scope_record.send(scope_association)
-            end
-
-            if associated_records.any?
-              associated_records.each(&:lock!)
-            else
-              @model.where(scope_record.slice(*scope_columns)).reorder(primary_key).lock.ids
-            end
-
+            Mechanisms.new(scope_record, @column).lock_positioning_scope!
             sequence @model.where(scope_record.slice(*scope_columns))
           end
         end
@@ -35,10 +26,6 @@ module Positioning
 
     def scope_columns
       @model.positioning_columns[@column][:scope_columns]
-    end
-
-    def scope_associations
-      @model.positioning_columns[@column][:scope_associations]
     end
 
     def primary_key
