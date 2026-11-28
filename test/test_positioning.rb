@@ -463,6 +463,33 @@ class TestReadsAfterTheLock < Minitest::Test
     list.destroy
   end
 
+  def test_a_move_does_not_deadlock_with_a_transaction_that_shares_a_lock_on_the_record_and_then_edits_it
+    list, students = list_of_students
+    shared = Queue.new
+
+    sharer = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        Author.transaction do
+          Author.lock("FOR SHARE").find(students["C"].id)
+          shared << true
+          sleep 0.5
+          Author.where(id: students["C"].id).update_all(name: "Edited")
+        end
+      end
+    end
+    shared.pop
+
+    student = Author.find(students["C"].id)
+    read_during_validation student
+    student.update position: 1
+    sharer.join
+
+    assert_list ["Edited", "A", "B", "D", "E"], list
+  ensure
+    sharer&.join
+    list&.destroy
+  end
+
   def test_appending_when_the_list_changes_while_the_parents_schema_loads
     list, students = list_of_students
     list_id = list.id

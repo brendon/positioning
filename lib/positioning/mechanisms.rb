@@ -109,7 +109,7 @@ module Positioning
     def position_was
       return @position_was if defined?(@position_was)
 
-      @position_was = current(record_scope).pick(@column)
+      @position_was = current_for_update(record_scope).pick(@column)
     end
 
     def staying_put?
@@ -249,6 +249,10 @@ module Positioning
       snapshot_may_be_stale? ? relation.lock("LOCK IN SHARE MODE") : relation
     end
 
+    def current_for_update(relation)
+      snapshot_may_be_stale? ? relation.lock : relation
+    end
+
     def moved_since_snapshot?(relative_record_scope, relative_id)
       return false unless snapshot_may_be_stale?
 
@@ -260,7 +264,7 @@ module Positioning
     end
 
     def positioning_scope_was
-      scope_of current(record_scope).first
+      scope_of current_for_update(record_scope).first
     end
 
     def scope_of(record)
@@ -269,7 +273,7 @@ module Positioning
 
     def in_positioning_scope?
       @positioned.persisted? &&
-        current(positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil)).exists?
+        current_for_update(positioning_scope.where(primary_key => [@positioned.id_in_database]).where.not(@column => nil)).exists?
     end
 
     def positioning_scope_changed?
