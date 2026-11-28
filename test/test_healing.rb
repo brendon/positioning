@@ -206,6 +206,29 @@ class TestHealing < Minitest::Test
     assert_match(/FROM .categories. WHERE .* ORDER BY \S*id\S* FOR UPDATE/i, capture_sql { Category.heal_position_column! })
   end
 
+  class HiddenList < ActiveRecord::Base
+    self.table_name = "lists"
+
+    default_scope { where.not(name: "Hidden") }
+  end
+
+  class ItemInAHiddenList < ActiveRecord::Base
+    self.table_name = "new_items"
+
+    belongs_to :list, class_name: "HiddenList"
+
+    positioned on: :list
+  end
+
+  def test_heal_locks_a_parent_that_its_default_scope_hides
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    list = List.create name: "Hidden"
+    ItemInAHiddenList.create list_id: list.id, name: "A"
+
+    assert_match(/FROM .lists. WHERE .lists.\..id. = \S+ FOR UPDATE/i, capture_sql { ItemInAHiddenList.heal_position_column! })
+  end
+
   private
 
   def capture_sql

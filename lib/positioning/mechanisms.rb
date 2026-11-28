@@ -62,6 +62,14 @@ module Positioning
       end
     end
 
+    def lock_positioning_scope!
+      record_in_database = record_scope.first if @positioned.persisted? && positioning_scope_changed?
+      scopes_to_lock = [record_in_database, @positioned].compact.map { |record| [scope_of(record), parent_rows_of(record)] }
+      @snapshot_may_be_stale = base_class.with_connection { |connection| Snapshot.may_be_stale?(connection) }
+
+      scopes_to_lock.each { |scope, parent_rows| lock_scope scope, parent_rows }
+    end
+
     private
 
     def base_class
@@ -213,14 +221,6 @@ module Positioning
 
     def positioning_scope
       scope_of @positioned
-    end
-
-    def lock_positioning_scope!
-      record_in_database = record_scope.first if @positioned.persisted? && positioning_scope_changed?
-      scopes_to_lock = [record_in_database, @positioned].compact.map { |record| [scope_of(record), parent_rows_of(record)] }
-      @snapshot_may_be_stale = base_class.with_connection { |connection| Snapshot.may_be_stale?(connection) }
-
-      scopes_to_lock.each { |scope, parent_rows| lock_scope scope, parent_rows }
     end
 
     def lock_scope(scope, parent_rows)
