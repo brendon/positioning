@@ -205,16 +205,20 @@ module Positioning
     end
 
     def lock_scope_of(record)
-      associated_records = scope_associations.filter_map do |scope_association|
-        record.send(scope_association)
-      end
+      locked_parent_ids = parent_rows_of(record).flat_map { |parent_row| parent_row.lock.ids }
 
-      if associated_records.any?
-        associated_records.each do |associated_record|
-          associated_record.class.base_class.lock.find(associated_record.id)
-        end
-      else
-        scope_of(record).reorder(primary_key).lock.ids
+      scope_of(record).reorder(primary_key).lock.ids if locked_parent_ids.empty?
+    end
+
+    def parent_rows_of(record)
+      scope_associations.filter_map do |scope_association|
+        association = record.association(scope_association)
+        parent_class = association.klass
+        foreign_key = Array(association.reflection.foreign_key).map { |column| record[column] }
+        next if parent_class.nil? || foreign_key.any?(&:nil?)
+
+        parent_primary_key = Array(association.reflection.association_primary_key(parent_class))
+        parent_class.base_class.unscoped.where(parent_primary_key.zip(foreign_key).to_h)
       end
     end
 

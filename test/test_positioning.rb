@@ -548,7 +548,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    List.expects(:lock).once.returns(List)
+    ActiveRecord::Relation.any_instance.expects(:lock).once.returns(List)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -560,7 +560,7 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(student, :position)
 
-    List.expects(:lock).twice.returns(List)
+    ActiveRecord::Relation.any_instance.expects(:lock).twice.returns(List)
     mechanisms.send(:lock_positioning_scope!)
   end
 
@@ -605,6 +605,8 @@ class TestPositioningMechanisms < Minitest::Test
   end
 
   def test_lock_positioning_scope_with_optional_scope_association
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
     blog = Blog.create name: "Blog"
     blog.posts.create name: "First Post"
     second_post = Post.create name: "Second Post"
@@ -612,8 +614,50 @@ class TestPositioningMechanisms < Minitest::Test
 
     mechanisms = Positioning::Mechanisms.new(second_post, :position)
 
-    Blog.expects(:lock).once.returns(Blog)
-    mechanisms.send(:lock_positioning_scope!)
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    assert_match(/FROM .posts. WHERE .posts.\..blog_id. IS NULL .*FOR UPDATE/i, queries.join("\n"))
+    assert_match(/FROM .blogs. WHERE .blogs.\..id. = \S+ .*FOR UPDATE/i, queries.join("\n"))
+  end
+
+  def test_lock_positioning_scope_locks_the_parent_without_loading_it
+    list = List.create name: "List"
+    item = Item.find(list.items.create(name: "Item").id)
+    mechanisms = Positioning::Mechanisms.new(item, :position)
+
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    list_queries = queries.grep(/FROM .lists./)
+
+    assert_equal 1, list_queries.size
+    assert_match(/SELECT .lists.\..id. FROM .lists. WHERE .lists.\..id. = /i, list_queries.first)
+    refute item.association(:list).loaded?
+  end
+
+  def test_lock_positioning_scope_with_a_missing_parent
+    skip "SQLite doesn't support row locking" if ENV["DB"] == "sqlite"
+
+    item = Item.new name: "Item", list_id: 0
+    mechanisms = Positioning::Mechanisms.new(item, :position)
+
+    queries = []
+    callback = ->(*, payload) { queries << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      mechanisms.send(:lock_positioning_scope!)
+    end
+
+    assert_match(/FROM .items. WHERE .items.\..list_id. = \S+ .*FOR UPDATE/i, queries.join("\n"))
   end
 
   def test_lock_positioning_scope_with_nil_scope_association
