@@ -1,5 +1,6 @@
 require_relative "positioning/version"
 require_relative "positioning/mechanisms"
+require_relative "positioning/snapshot"
 require_relative "positioning/healer"
 
 require "active_support/concern"

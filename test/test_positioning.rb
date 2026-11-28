@@ -196,6 +196,474 @@ class TestTransactionSafety < Minitest::Test
   end
 end
 
+class TestReadsAfterTheLock < Minitest::Test
+  def setup
+    skip "SQLite doesn't allow concurrent writers" if ENV["DB"] == "sqlite"
+  end
+
+  def test_moving_when_the_list_changes_after_a_validation_reads
+    list, students = list_of_students
+    student = Author.find(students["C"].id)
+    read_during_validation student
+
+    after_first_query(-> { add_student list, "New", position: 1 }) { student.update position: 5 }
+
+    assert_list ["New", "A", "B", "D", "C", "E"], list
+
+    list.destroy
+  end
+
+  def test_destroying_when_the_list_changes_after_a_callback_reads
+    blogs = ["A", "B", "C", "D", "E"].map { |name| Blog.create name: name }
+    blog = Blog.find(blogs[2].id)
+    blog.posts.create name: "Post"
+
+    after_first_query(-> { Blog.find(blogs[0].id).update position: :last }) { blog.destroy }
+
+    assert_equal [[1, "B"], [2, "D"], [3, "E"], [4, "A"]], Blog.pluck(:position, :name)
+
+    Blog.destroy_all
+  end
+
+  def test_moving_when_the_list_changes_during_attribute_assignment
+    list, students = list_of_students
+    student = Author.find(students["C"].id)
+
+    def student.assign_attributes(*)
+      Author.where(list_id: list_id).exists?
+      super
+    end
+
+    after_first_query(-> { add_student list, "New", position: 1 }) { student.update position: 5 }
+
+    assert_list ["New", "A", "B", "D", "C", "E"], list
+
+    list.destroy
+  end
+
+  def test_creating_through_an_association_when_a_validation_reads
+    list, = list_of_students
+
+    after_first_query(-> { add_student list, "New", position: 1 }) do
+      list.authors.create(name: "F", type: "Author::Student") { |author| read_during_validation author }
+    end
+
+    assert_list ["New", "A", "B", "C", "D", "E", "F"], list
+
+    list.destroy
+  end
+
+  def test_autosaving_when_the_parents_validation_reads
+    list, = list_of_students
+    author = list.authors.build name: "F", type: "Author::Student"
+    read_during_validation author
+    list.name = "Renamed"
+
+    after_first_query(-> { add_student list, "New", position: 1 }) { list.save }
+
+    assert_list ["New", "A", "B", "C", "D", "E", "F"], list
+
+    list.destroy
+  end
+
+  def test_saving_in_a_transaction_that_has_already_read
+    list, students = list_of_students
+    student = Author.find(students["C"].id)
+
+    after_first_query(-> { add_student list, "New", position: 1 }) do
+      List.transaction do
+        List.where(id: list.id).exists?
+        student.update position: 5
+      end
+    end
+
+    assert_list ["New", "A", "B", "D", "C", "E"], list
+
+    list.destroy
+  end
+
+  def test_appending_when_the_end_of_the_list_has_been_destroyed_since_the_snapshot
+    list, students = list_of_students
+
+    after_first_query(-> { Author.find(students["E"].id).destroy }) do
+      Author.transaction do
+        Author.where(list_id: list.id).exists?
+        add_student list, "F"
+      end
+    end
+
+    assert_list ["A", "B", "C", "D", "F"], list
+
+    list.destroy
+  end
+
+  def test_positioning_relative_to_a_record_that_has_moved_since_the_snapshot
+    list, students = list_of_students
+
+    after_first_query(-> { add_student list, "New", position: 1 }) do
+      Author.transaction do
+        Author.where(list_id: list.id).exists?
+        add_student list, "F", position: {after: students["B"].id.to_s}
+      end
+    end
+
+    assert_list ["New", "A", "B", "F", "C", "D", "E"], list
+
+    list.destroy
+  end
+
+  def test_positioning_relative_to_a_record_destroyed_since_the_snapshot
+    list, students = list_of_students
+
+    assert_raises Positioning::Error do
+      after_first_query(-> { Author.find(students["B"].id).destroy }) do
+        Author.transaction do
+          Author.where(list_id: list.id).exists?
+          add_student list, "F", position: {after: students["B"].id}
+        end
+      end
+    end
+
+    assert_list ["A", "C", "D", "E"], list
+
+    list.destroy
+  end
+
+  def test_moving_between_scopes_when_both_change_after_a_read
+    list, students = list_of_students
+    other_list = List.create name: "Other"
+    add_student other_list, "X"
+    student = Author.find(students["C"].id)
+    read_during_validation student
+
+    concurrent = lambda do
+      add_student list, "New", position: 1
+      add_student other_list, "Y"
+    end
+    after_first_query(concurrent) { student.update list_id: other_list.id }
+
+    assert_list ["New", "A", "B", "D", "E"], list
+    assert_list ["X", "Y", "C"], other_list
+
+    [list, other_list].each(&:destroy)
+  end
+
+  def test_a_second_position_column_when_the_list_changes_after_the_first_columns_reads
+    blog = Blog.create name: "Blog"
+    other_blog = Blog.create name: "Other Blog"
+    Post.create name: "Seed"
+
+    after_first_query(-> { other_blog.posts.create name: "Theirs" }, matching: /MAX/) { blog.posts.create name: "Ours" }
+
+    assert_equal ["Seed", "Theirs", "Ours"], Post.pluck(:name)
+    assert_equal [1, 2, 3], Post.pluck(:order)
+
+    Post.delete_all
+    Blog.destroy_all
+  end
+
+  def test_reading_the_end_of_a_list_does_not_wait_for_an_edit_of_its_last_record
+    list, students = list_of_students
+
+    assert_not_held_up_by_an_edit_of(students["E"]) do
+      Author.transaction do
+        Author.where(list_id: list.id).exists?
+        add_student list, "F"
+      end
+    end
+
+    list.destroy
+  end
+
+  def test_reading_a_relative_record_does_not_wait_for_an_edit_of_it
+    list, students = list_of_students
+
+    assert_not_held_up_by_an_edit_of(students["B"]) do
+      Author.transaction do
+        Author.where(list_id: list.id).exists?
+        add_student list, "F", position: {after: students["B"]}
+      end
+    end
+
+    list.destroy
+  end
+
+  def test_moving_past_the_end_of_a_list_that_has_grown_since_the_snapshot
+    list, students = list_of_students
+
+    after_first_query(-> { add_student list, "New" }) do
+      Author.transaction do
+        Author.where(list_id: list.id).exists?
+        Author.find(students["C"].id).update position: 99
+      end
+    end
+
+    assert_list ["A", "B", "D", "E", "New", "C"], list
+
+    list.destroy
+  end
+
+  def test_a_move_does_not_hold_up_a_move_in_the_next_list
+    list, students = list_of_students
+    next_list = List.create name: "Next"
+    next_student = 3.times.map { |i| add_student next_list, i.to_s }.last
+    moved = Queue.new
+    finish = Queue.new
+
+    mover = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        Author.transaction do
+          Author.where(list_id: list.id).exists?
+          Author.find(students["D"].id).update position: 2
+          moved << true
+          finish.pop
+        end
+      end
+    end
+    moved.pop
+
+    other = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        Author.transaction do
+          Author.where(list_id: next_list.id).exists?
+          Author.find(next_student.id).update position: 1
+        end
+      end
+    end
+
+    assert other.join(3), "was held up by the move in the other list"
+  ensure
+    finish << true
+    [mover, other].compact.each(&:join)
+    [list, next_list].compact.each(&:destroy)
+  end
+
+  class ItemWithADefaultScope < ActiveRecord::Base
+    self.table_name = "items"
+
+    belongs_to :list
+
+    positioned on: :list
+
+    default_scope { where.not(name: nil) }
+  end
+
+  def test_a_default_scope_does_not_lock_the_whole_list
+    list = List.create name: "List"
+    records = ["A", "B", "C", "D", "E"].map { |name| ItemWithADefaultScope.create! list: list, name: name }
+
+    assert_not_held_up_by_an_edit_of(records[1]) do
+      ItemWithADefaultScope.transaction do
+        ItemWithADefaultScope.where(list_id: list.id).exists?
+        ItemWithADefaultScope.create! list: list, name: "F"
+      end
+    end
+
+    ItemWithADefaultScope.unscoped.where(list_id: list.id).delete_all
+    list.destroy
+  end
+
+  private
+
+  def list_of_students
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+
+    list = List.create name: "List"
+    [list, ["A", "B", "C", "D", "E"].to_h { |name| [name, add_student(list, name)] }]
+  end
+
+  def add_student(list, name, **attributes)
+    list.authors.create!(name: name, type: "Author::Student", **attributes)
+  end
+
+  def read_during_validation(author)
+    def author.valid?(*)
+      Author.where(list_id: list_id).exists?
+      super
+    end
+  end
+
+  def assert_list(names, list)
+    assert_equal names, Author.where(list_id: list.id).order(:position).pluck(:name)
+    assert_equal (1..names.length).to_a, Author.where(list_id: list.id).order(:position).pluck(:position)
+  end
+
+  def after_first_query(concurrent, matching: //)
+    thread = Thread.current
+    other_thread = nil
+
+    run_concurrent = lambda do |*, payload|
+      next if Thread.current != thread || other_thread || ["SCHEMA", "TRANSACTION"].include?(payload[:name])
+      next unless payload[:sql].match?(matching)
+
+      other_thread = Thread.new { ActiveRecord::Base.connection_pool.with_connection { concurrent.call } }
+      other_thread.join(0.5)
+    end
+
+    ActiveSupport::Notifications.subscribed(run_concurrent, "sql.active_record") { yield }
+  ensure
+    other_thread&.join
+  end
+
+  def assert_not_held_up_by_an_edit_of(record, &block)
+    edited = Queue.new
+    finish = Queue.new
+
+    editor = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        record.class.transaction do
+          record.class.unscoped.where(id: record.id).update_all(name: "Edited")
+          edited << true
+          finish.pop
+        end
+      end
+    end
+    edited.pop
+
+    ours = Thread.new { ActiveRecord::Base.connection_pool.with_connection(&block) }
+
+    assert ours.join(3), "was held up by the other transaction's edit"
+  ensure
+    finish << true
+    [editor, ours].compact.each(&:join)
+  end
+end
+
+class TestSnapshot < Minitest::Test
+  def setup
+    @list = List.create name: "List"
+    @student = @list.authors.create name: "A", type: "Author::Student"
+    @connection = ActiveRecord::Base.connection_pool.lease_connection
+  end
+
+  def teardown
+    @list.destroy
+  end
+
+  def test_not_stale_outside_a_transaction
+    refute Positioning::Snapshot.may_be_stale?(@connection)
+  end
+
+  def test_not_stale_when_a_transaction_has_sent_nothing
+    Author.transaction do
+      refute Positioning::Snapshot.may_be_stale?(@connection)
+    end
+  end
+
+  def test_may_be_stale_on_mysql_once_a_transaction_has_read
+    Author.transaction do
+      Author.where(list_id: @list.id).exists?
+
+      assert_equal mysql?, Positioning::Snapshot.may_be_stale?(@connection)
+    end
+  end
+
+  def test_may_be_stale_on_mysql_in_a_nested_transaction
+    Author.transaction do
+      Author.where(list_id: @list.id).exists?
+
+      Author.transaction(requires_new: true) do
+        assert_equal mysql?, Positioning::Snapshot.may_be_stale?(@connection)
+      end
+    end
+  end
+
+  def test_current_only_changes_how_a_stale_snapshot_reads
+    relation = Author.where(list_id: @list.id)
+
+    Author.transaction do
+      mechanisms = Positioning::Mechanisms.new(@student, :position)
+      mechanisms.send(:lock_positioning_scope!)
+      assert_nil mechanisms.send(:current, relation).lock_value
+
+      Author.where(list_id: @list.id).exists?
+      mechanisms = Positioning::Mechanisms.new(@student, :position)
+      mechanisms.send(:lock_positioning_scope!)
+      lock = mechanisms.send(:current, relation).lock_value
+
+      mysql? ? assert_equal("LOCK IN SHARE MODE", lock) : assert_nil(lock)
+    end
+  end
+
+  def test_nothing_changes_for_a_save_that_has_not_read_before_the_lock
+    student = @student
+
+    locking_reads = shared_locks_during do
+      student.update position: 1
+      student.update name: "Renamed"
+      @list.authors.create! name: "B", type: "Author::Student"
+      student.destroy
+    end
+
+    assert_empty locking_reads
+  end
+
+  def test_not_stale_in_a_transaction_opened_at_read_committed
+    skip "SQLite only supports read_uncommitted" if ENV["DB"] == "sqlite"
+
+    Author.transaction(isolation: :read_committed) do
+      Author.where(list_id: @list.id).exists?
+      refute Positioning::Snapshot.may_be_stale?(@connection)
+
+      if @connection.current_transaction.respond_to?(:isolation)
+        Author.transaction(requires_new: true) do
+          refute Positioning::Snapshot.may_be_stale?(@connection)
+        end
+      end
+    end
+  end
+
+  def test_not_stale_when_the_connection_is_at_read_committed
+    skip "MySQL only" unless mysql?
+
+    @connection.execute("SET SESSION transaction_isolation = 'READ-COMMITTED'")
+
+    Author.transaction do
+      Author.where(list_id: @list.id).exists?
+      refute Positioning::Snapshot.may_be_stale?(@connection)
+    end
+  ensure
+    @connection.execute("SET SESSION transaction_isolation = 'REPEATABLE-READ'") if mysql?
+  end
+
+  def test_moving_to_a_taken_position_does_not_read_the_end_of_the_list
+    other = @list.authors.create! name: "B", type: "Author::Student"
+
+    locking_reads = shared_locks_during do
+      Author.transaction do
+        Author.where(list_id: @list.id).exists?
+        other.update! position: 1
+      end
+    end
+
+    assert_empty locking_reads.grep(/DESC|MAX/)
+  end
+
+  def test_only_mysql_reads_with_a_shared_lock_after_a_read
+    locking_reads = shared_locks_during do
+      Author.transaction do
+        Author.where(list_id: @list.id).exists?
+        @list.authors.create! name: "B", type: "Author::Student"
+      end
+    end
+
+    assert_equal mysql?, locking_reads.any?
+  end
+
+  private
+
+  def mysql?
+    ENV["DB"] == "mysql"
+  end
+
+  def shared_locks_during
+    statements = []
+    listener = ->(*, payload) { statements << payload[:sql] if payload[:sql].include?("SHARE") }
+    ActiveSupport::Notifications.subscribed(listener, "sql.active_record") { yield }
+    statements
+  end
+end
+
 class TestPositioningMechanisms < Minitest::Test
   include Minitest::Hooks
 

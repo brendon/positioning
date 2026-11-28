@@ -4,6 +4,7 @@
 - Document how to avoid a deadlock between transactions that each write a row referencing a list's parent by foreign key and then position a record in that list.
 - When a scope has no `belongs_to` association, lock the records in it without loading them. Before, every create, update and destroy loaded every record in the scope (for a model with no scope, every record in the table) just to lock them.
 - When healing a scope that has no `belongs_to` association (or whose parent is `nil`), lock its records in primary key order. On MySQL, healing next to saves to the same list deadlocked more often without it.
+- Fix gaps, duplicate positions, misplaced records and unique index violations on MySQL when saves to the same list overlap. A transaction's first read fixes what it sees at REPEATABLE READ, and when that read came before our lock, the transaction couldn't see what others committed while it waited. A scope's `belongs_to` parent is now locked by its key without being loaded first (or going through its default scope), so a save on its own reads nothing before the lock. When something else has read first (a validation, a callback, your own query), positions are read with a shared lock, which can make other writers wait and occasionally deadlock. See the Concurrency section of the README.
 
 ## [0.5.0] - 2026-11-11
 
