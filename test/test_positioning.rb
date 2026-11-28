@@ -463,6 +463,20 @@ class TestReadsAfterTheLock < Minitest::Test
     list.destroy
   end
 
+  def test_appending_when_the_list_changes_while_the_parents_schema_loads
+    list, students = list_of_students
+    list_id = list.id
+    List.reset_column_information
+
+    after_first_query(-> { Author.where(id: students["E"].id).delete_all }, skipping: ["TRANSACTION"]) do
+      Author.create! list_id: list_id, name: "F", type: "Author::Student"
+    end
+
+    assert_list ["A", "B", "C", "D", "F"], list
+
+    list.destroy
+  end
+
   private
 
   def list_of_students
@@ -488,12 +502,12 @@ class TestReadsAfterTheLock < Minitest::Test
     assert_equal (1..names.length).to_a, Author.where(list_id: list.id).order(:position).pluck(:position)
   end
 
-  def after_first_query(concurrent, matching: //)
+  def after_first_query(concurrent, matching: //, skipping: ["SCHEMA", "TRANSACTION"])
     thread = Thread.current
     other_thread = nil
 
     run_concurrent = lambda do |*, payload|
-      next if Thread.current != thread || other_thread || ["SCHEMA", "TRANSACTION"].include?(payload[:name])
+      next if Thread.current != thread || other_thread || skipping.include?(payload[:name])
       next unless payload[:sql].match?(matching)
 
       other_thread = Thread.new { ActiveRecord::Base.connection_pool.with_connection { concurrent.call } }
